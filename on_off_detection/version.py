@@ -56,21 +56,21 @@ Copyright (c) 2015--, Ariel Rokem, The University of Washington
 eScience Institute.
 """
 
-NAME = "shablona"
-MAINTAINER = "Ariel Rokem"
-MAINTAINER_EMAIL = "arokem@gmail.com"
+NAME = "on_off_detection"
+MAINTAINER = "Tom Bugnon"
+MAINTAINER_EMAIL = "tombugnon@hotmail.com"
 DESCRIPTION = description
 LONG_DESCRIPTION = long_description
-URL = "http://github.com/uwescience/shablona"
+URL = ""
 DOWNLOAD_URL = ""
 LICENSE = "MIT"
-AUTHOR = "Ariel Rokem"
-AUTHOR_EMAIL = "arokem@gmail.com"
+AUTHOR = "Tom Bugnon"
+AUTHOR_EMAIL = "tombugnon@hotmail.com"
 PLATFORMS = "OS Independent"
 MAJOR = _version_major
 MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
-PACKAGE_DATA = {'shablona': [pjoin('data', '*')]}
+PACKAGE_DATA = {'on_off_detection': [pjoin('data', '*')]}
 REQUIRES = ["numpy"]
 PYTHON_REQUIRES = ">= 3.5"

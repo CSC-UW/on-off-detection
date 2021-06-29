@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .methods.threshold import THRESHOLD_PARAMS, run_threshold
+from .threshold import THRESHOLD_PARAMS, run_threshold
 
 METHODS = {
 	'threshold': run_threshold,
@@ -23,7 +23,7 @@ def OnOffModel(object):
 		output_dir: Where we save output figures and summary statistics.
 	"""
 
-	def __init__(spike_times, output_dir, params=None, Tmax=None, method='threshold'):
+	def __init__(spike_times, output_dir=None, params=None, Tmax=None, method='threshold'):
 		# Params
 		self.spike_times = spike_times
 		if not all(
@@ -43,7 +43,9 @@ def OnOffModel(object):
 			params = {}
 		self.params.update(params)
 		# Output stuff
-		self.output_dir = Path(output_dir)
+		self.output_dir = output_dir
+		if output_dir is not None:
+			self.output_dir = Path(output_dir)
 		self.res = None
 		self.stats = None
 
@@ -54,6 +56,8 @@ def OnOffModel(object):
 		self.stats = self.compute_stats(self.res)
 	
 	def save():
+		if self.output_dir is None:
+			raise ValueError()
 		self.output_dir.mkdir(exist_ok=True, parents=True)
 		self.res.to_csv(self.output_dir/'on-off-times.csv')
 		self.stats.to_csv(self.output_dir/'on-off-stats.csv')
