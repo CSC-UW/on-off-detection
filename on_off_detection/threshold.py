@@ -80,6 +80,7 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 
 
 	## Get "count threshold" from histogram of smoothed bin counts
+	print("Get count histogram...", end="")
 	nbins = int(Tmax/params['binsize'])
 	bin_counts, bins = np.histogram(spike_times, bins=nbins, range=[0, Tmax])
 	bin_centers = np.array(bins[0:-1]) + params['binsize']/2
@@ -98,6 +99,7 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 	active_bin = np.array([count >= count_threshold for count in bin_counts])
 
 	# Get "gap threshold" from all off periods durations
+	print("Get off period duration histogram...", end="")
 	off_durations_pre = utils.state_durations(
 		active_bin, 0, srate=srate,
 	) # (sec)
@@ -122,6 +124,7 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 	print(f'Gap threshold = {gap_threshold}(s)')
 
 	# Merge active states separated by less than gap_threshold
+	print("Merge closeby on-periods...", end="")
 	off_starts = utils.state_starts(active_bin, 0)
 	off_ends = utils.state_ends(active_bin, 0)
 	N_merged = 0
@@ -133,6 +136,7 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 	
 	# Return df
 	# all in (sec)
+	print("Get final on/off periods df...", end="")
 	on_starts = utils.state_starts(active_bin, 1) / srate
 	off_starts = utils.state_starts(active_bin, 0) / srate
 	on_ends = utils.state_ends(active_bin, 1) / srate
@@ -152,6 +156,7 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 		'end_time': list(on_ends) + list(off_ends),
 		'duration': list(on_durations) + list(off_durations),
 	}).sort_values(by='start_time').reset_index(drop=True)
+	print("Done.")
 
 	if save or show:
 
