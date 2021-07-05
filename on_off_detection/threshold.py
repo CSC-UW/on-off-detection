@@ -142,10 +142,10 @@ def run_threshold(spike_times_list, Tmax, params, output_dir=None, show=True, sa
 	on_ends = utils.state_ends(active_bin, 1) / srate
 	off_ends = utils.state_ends(active_bin, 0) / srate
 	on_durations = utils.state_durations(
-		active_bin, 1, srate=srate, starts=on_starts, ends=on_ends,
+		active_bin, 1, starts=on_starts, ends=on_ends,
 	)
 	off_durations = utils.state_durations(
-		active_bin, 0, srate=srate, starts=off_starts, ends=off_ends,
+		active_bin, 0, starts=off_starts, ends=off_ends,
 	)
 	N_on = len(on_starts)
 	N_off = len(off_starts)
