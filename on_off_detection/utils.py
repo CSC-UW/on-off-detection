@@ -29,19 +29,21 @@ def state_ends(states_list, state):
 			# Last bout
 		    ends.append(len(states_list))
 		else:
-			ends.append(min(next_other_starts) - 1)
+			ends.append(min(next_other_starts))
 
 	return np.array(ends)
 
 
-def state_durations(states_list, state, srate=None):
+def state_durations(states_list, state, srate=None, starts=None, ends=None):
 	"""Duration for each state.
 	
 	Converted to seconds if srate is provided.
 	"""
 	from time import time
-	starts = state_starts(states_list, state)
-	ends = state_ends(states_list, state)
+	if starts is None:
+		starts = state_starts(states_list, state)
+	if ends is None:
+		ends = state_ends(states_list, state)
 	assert len(starts) == len(ends)
 	res = np.array(
 		[ends[i] - starts[i] for i in range(len(starts))],
