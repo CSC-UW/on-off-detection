@@ -24,12 +24,17 @@ def state_ends(states_list, state):
 
 	ends = []
 	for i, start_i in enumerate(starts):
-		next_other_starts = [st for st in other_starts if st > start_i]
-		if not next_other_starts:
+		# next_other_starts = [st for st in other_starts if st > start_i]
+		next_other_start = next((st for st in other_starts if st > start_i), None)
+		if not next_other_start:
 			# Last bout
 		    ends.append(len(states_list))
 		else:
-			ends.append(min(next_other_starts))
+			ends.append(next_other_start)
+		# For speed
+		if i % 5000 == 0:
+			other_starts = [st for st in other_starts if st >= start_i]
+
 
 	return np.array(ends)
 
