@@ -71,6 +71,7 @@ class OnOffModel(object):
 			params = {}
 		self.params.update(params)
 		self.hyp = hyp
+		self.n_jobs = n_jobs
 		# Output stuff
 		self.output_dir = output_dir
 		if output_dir is not None:
@@ -104,7 +105,7 @@ class OnOffModel(object):
 					on_off_dfs.append(cluster_on_off_df)
 			else:
 				from joblib import Parallel, delayed
-				on_off_dfs = Parallel(n_jobs=20, backend='multiprocessing')(
+				on_off_dfs = Parallel(n_jobs=self.n_jobs, backend='multiprocessing')(
 					delayed(run_cluster)(
 						i,
 						cluster_id,
@@ -118,6 +119,7 @@ class OnOffModel(object):
 					for i, cluster_id in enumerate(self.cluster_ids)
 				)
 
+			print("Done getting all units' on off periods")
 			self.on_off_df = pd.concat(on_off_dfs)
 
 		return self.on_off_df
