@@ -14,7 +14,7 @@ DF_PARAMS = {
 }
 
 
-def run_cluster(
+def _run_cluster(
 	i,
 	cluster_id,
 	detection_func,
@@ -106,7 +106,7 @@ class OnOffModel(object):
 			else:
 				from joblib import Parallel, delayed
 				on_off_dfs = Parallel(n_jobs=self.n_jobs, backend='multiprocessing')(
-					delayed(run_cluster)(
+					delayed(_run_cluster)(
 						i,
 						cluster_id,
 						self.detection_func,
