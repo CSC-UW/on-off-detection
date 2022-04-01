@@ -26,34 +26,13 @@ CLASSIFIERS = ["Development Status :: 3 - Alpha",
                "Topic :: Scientific/Engineering"]
 
 # Description should be a one-liner:
-description = "shablona: a template for small scientific Python projects"
+description = "Detect ON and OFF periods from unit activity"
 # Long description will go up on the pypi page
 long_description = """
 
-Shablona
-========
-Shablona is a template project for small scientific Python projects.
+on_off_detection
 
-It contains software implementations of an analysis of some simple data, but
-more importantly, it contains infrastructure for testing, documentation,
-continuous integration and deployment, which can be easily adapted
-to use in other projects.
-
-To get started using these components in your own software, please go to the
-repository README_.
-
-.. _README: https://github.com/uwescience/shablona/blob/master/README.md
-
-License
-=======
-``shablona`` is licensed under the terms of the MIT license. See the file
-"LICENSE" for information on the history of this software, terms & conditions
-for usage, and a DISCLAIMER OF ALL WARRANTIES.
-
-All trademarks referenced herein are property of their respective holders.
-
-Copyright (c) 2015--, Ariel Rokem, The University of Washington
-eScience Institute.
+Detect ON and OFF periods from unit activity
 """
 
 NAME = "on_off_detection"
@@ -61,7 +40,7 @@ MAINTAINER = "Tom Bugnon"
 MAINTAINER_EMAIL = "tombugnon@hotmail.com"
 DESCRIPTION = description
 LONG_DESCRIPTION = long_description
-URL = ""
+URL = "https://github.com/CSC-UW/on_off_detection"
 DOWNLOAD_URL = ""
 LICENSE = "MIT"
 AUTHOR = "Tom Bugnon"

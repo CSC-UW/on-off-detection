@@ -34,6 +34,7 @@ def _run_cluster(
 	return cluster_on_off_df
 
 
+# TODO: Document
 class OnOffModel(object):
 	"""Run ON and OFF-state detection from MUA data.
 	
