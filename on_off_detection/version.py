@@ -51,5 +51,12 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'on_off_detection': [pjoin('data', '*')]}
-REQUIRES = ["numpy"]
+INSTALL_REQUIRES = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "tqdm",
+    "ecephys"
+]
 PYTHON_REQUIRES = ">= 3.5"
