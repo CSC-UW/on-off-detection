@@ -53,7 +53,6 @@ def _run_detection(
 		on_off_df['bout_state'] = 'interbout'
 		bout_concat_start_time = 0  # Start time in cut and concatenated data
 		for i, row in bouts_df.iterrows():
-			print(i)
 			bout_concat_end_time = bout_concat_start_time + row['duration']
 			bout_on_off = (
 				(on_off_df['start_time'] > bout_concat_start_time)
