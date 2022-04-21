@@ -70,7 +70,7 @@ ZOOM_TIMES = [
 ]
 
 def run_threshold(
-	spike_times_list,
+	trains_list,
 	Tmax,
 	params,
 	output_dir=None,
@@ -81,7 +81,7 @@ def run_threshold(
 	"""Return dataframe of on/off periods.
 
 	Args:
-		spike_times_list: List of array likes.
+		trains_list: List of array likes.
 
 	Return:
 		pd.DataFrame: df with 'state', 'start_time', 'end_time' and 'duration' columns
@@ -89,12 +89,12 @@ def run_threshold(
 	print(f"method=threshold, params: {params}")
 	srate = int(1/params['binsize'])
 
-	spike_times = utils.merge_spike_times(spike_times_list)
-	print(f"Merged N={len(spike_times_list)} spike trains for on/off detection")
-	print(f"Merged pop. rate = {len(spike_times)/Tmax}Hz, N={len(spike_times)} spikes")
+	train = utils.merge_trains_list(trains_list)
+	print(f"Merged N={len(trains_list)} spike trains for on/off detection")
+	print(f"Merged pop. rate = {len(train)/Tmax}Hz, N={len(train)} spikes")
 
 	bin_counts, bins = np.histogram(
-		spike_times,
+		train,
 		bins=np.arange(0, Tmax+ params['binsize'], params['binsize']),
 	)
 	bin_centers = np.array(bins[0:-1]) + params['binsize']/2
@@ -191,8 +191,8 @@ def run_threshold(
 		'start_time': list(on_starts) + list(off_starts),
 		'end_time': list(on_ends) + list(off_ends),
 		'duration': list(on_durations) + list(off_durations),
-		'n_clusters': len(spike_times_list),
-		'cumFR': len(spike_times)/Tmax,
+		'n_clusters': len(trains_list),
+		'cumFR': len(train)/Tmax,
 		'count_threshold': count_threshold,
 		'gap_threshold': gap_threshold,
 		**params,
@@ -317,14 +317,14 @@ def run_threshold(
 
 		# raster
 		ax = fig.add_subplot(spec[4,:])
-		plot_spike_train(spike_times_list, ax=ax, linewidth=0.1, Tmax=Tmax)
+		plot_spike_train(trains_list, ax=ax, linewidth=0.1, Tmax=Tmax)
 		plot_on_off_overlay(on_off_df, ax=ax)
 		ax.set_title('Spike raster')
 
 		# Zoomed raster 1
 		zoom = ZOOM_TIMES[0]
 		ax = fig.add_subplot(spec[5,:])
-		plot_spike_train(spike_times_list, ax=ax, linewidth=1.0, Tmax=Tmax)
+		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
 		plot_on_off_overlay(on_off_df, ax=ax)
 		ax.set_xlim(*zoom)
 		ax.set_title('Spike raster (early 60s zoom)')
@@ -332,7 +332,7 @@ def run_threshold(
 		# Zoomed raster 2
 		zoom = ZOOM_TIMES[1]
 		ax = fig.add_subplot(spec[6,:])
-		plot_spike_train(spike_times_list, ax=ax, linewidth=1.0, Tmax=Tmax)
+		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
 		plot_on_off_overlay(on_off_df, ax=ax)
 		ax.set_xlim(*zoom)
 		ax.set_title('Spike raster (late 60s zoom)')

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-def subset_spike_times_list(spike_times_list, bouts_df):
+def subset_trains_list(trains_list, bouts_df):
 	"""Subset spikes within bouts.
 	
 	Return spike times relative to concatenated bouts.
@@ -12,11 +12,11 @@ def subset_spike_times_list(spike_times_list, bouts_df):
 	# TODO Validate that ther's no overlapping bout
 
 	return [
-		subset_spike_times(spike_times, bouts_df) for spike_times in spike_times_list
+		subset_train(train, bouts_df) for train in trains_list
 	]
 
 
-def subset_spike_times(spike_times, bouts_df):
+def subset_train(train, bouts_df):
 	res = []
 	current_concatenated_start = 0
 	for _, row in bouts_df.iterrows():
@@ -24,15 +24,15 @@ def subset_spike_times(spike_times, bouts_df):
 		duration = end - start
 		res += [
 			s - start + current_concatenated_start
-			for s in spike_times
+			for s in train
 			if s >= start and s <= end
 		]
 		current_concatenated_start += duration
 	return res
 
 
-def merge_spike_times(spike_times_list):
-	return sorted([inner for outer in spike_times_list for inner in outer])
+def merge_trains_list(trains_list):
+	return sorted([inner for outer in trains_list for inner in outer])
 
 
 def state_starts(states_list, state):

@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from .threshold import THRESHOLD_PARAMS, run_threshold
-from .utils import subset_spike_times_list
+from .utils import subset_trains_list
 
 METHODS = {
 	'threshold': run_threshold,
@@ -18,7 +18,7 @@ DF_PARAMS = {
 def _run_detection(
 	cluster_id,
 	detection_func,
-	spike_times_list,
+	trains_list,
 	Tmax,
 	bouts_df,
 	params,
@@ -30,15 +30,15 @@ def _run_detection(
 		print(f'Run #{i+1}/N, cluster_id={cluster_id}')
 
 	if bouts_df is not None:
-		spike_times_list = subset_spike_times_list(
-			spike_times_list,
+		trains_list = subset_trains_list(
+			trains_list,
 			bouts_df
 		)  # Times in cut-and-concatenated bouts
 		Tmax = bouts_df.duration.sum()
 		print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
 
 	on_off_df = detection_func(
-		spike_times_list, Tmax, params,
+		trains_list, Tmax, params,
 		save=True, output_dir=output_dir,
 		filename=f'{debug_plot_filename}_cluster={cluster_id}',
 	)
@@ -91,7 +91,7 @@ class OnOffModel(object):
 	"""Run ON and OFF-state detection from MUA data.
 	
 	Args:
-		spike_times_list (list of array-like): Sorted MUA spike times for each cluster
+		trains_list (list of array-like): Sorted MUA spike times for each cluster
 		cluster_ids (list of array-like): Cluster ids
 		pooled_detection (bool): Single on-off detection using all clusters,
 			or run a on-off detection for each cluster independently
@@ -111,20 +111,20 @@ class OnOffModel(object):
 	"""
 
 	def __init__(
-		self, spike_times_list, cluster_ids=None, pooled_detection=True,
+		self, trains_list, cluster_ids=None, pooled_detection=True,
 		params=None, Tmax=None, method='threshold', bouts_df=None,
 		output_dir=None, debug_plot_filename=None, n_jobs=50,
 	):
-		self.spike_times_list = [sorted(spike_times) for spike_times in spike_times_list]
+		self.trains_list = [sorted(train) for train in trains_list]
 		if cluster_ids is not None:
-			assert len(cluster_ids) == len(spike_times_list)
+			assert len(cluster_ids) == len(trains_list)
 			self.cluster_ids = cluster_ids
 		else:
-			self.cluster_ids = ['' for i in range(len(spike_times_list))]
+			self.cluster_ids = ['' for i in range(len(trains_list))]
 		self.pooled_detection = pooled_detection
 		self.Tmax = Tmax
 		if self.Tmax is None:
-			self.Tmax = max(self.spike_times)
+			self.Tmax = max(self.train)
 		self.method=method
 		if self.method not in METHODS.keys():
 			raise ValueError('Unrecognized method.')
@@ -151,7 +151,7 @@ class OnOffModel(object):
 			self.on_off_df = _run_detection(
 				'mua',
 				self.detection_func,
-				self.spike_times_list,
+				self.trains_list,
 				self.Tmax,
 				self.bouts_df,
 				self.params,
@@ -169,7 +169,7 @@ class OnOffModel(object):
 					cluster_on_off_df = _run_detection(
 						cluster_id,
 						self.detection_func,
-						[self.spike_times_list[i]],
+						[self.trains_list[i]],
 						self.Tmax,
 						self.bouts_df,
 						self.params,
@@ -184,7 +184,7 @@ class OnOffModel(object):
 					delayed(_run_detection)(
 						cluster_id,
 						self.detection_func,
-						[self.spike_times_list[i]],
+						[self.trains_list[i]],
 						self.Tmax,
 						self.bouts_df,
 						self.params,
