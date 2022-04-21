@@ -62,12 +62,8 @@ THRESHOLD_PARAMS = {
 	'gap_threshold': None,
 }
 
-# TODO: pass as kwarg
-ZOOM_TIMES = [
-	(30, 90),
-	# (3438, 3498),  # Doppio
-	(1326, 1356),  # Charles
-]
+ZOOM_START_TIMES = (0.3, 0.6) # Ratio of Tmax
+ZOOM_DURATION = 60
 
 def run_threshold(
 	trains_list,
@@ -294,26 +290,26 @@ def run_threshold(
 		ax.set_title('Binned spike count ; smoothed count')
 
 		# Zoomed bin count 1
-		zoom = ZOOM_TIMES[0]
+		zoom1 = (ZOOM_START_TIMES[0] * Tmax, ZOOM_START_TIMES[0] * Tmax + ZOOM_DURATION)
 		ax = fig.add_subplot(spec[2,:])
 		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
 		ax.set_xlim(0, Tmax)
 		ax2=ax.twinx()
 		ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
 		plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
-		ax.set_xlim(*zoom)
-		ax.set_title('Binned spike count ; smoothed count (early 60s zoom)')
+		ax.set_xlim(*zoom1)
+		ax.set_title(f'Binned spike count ; smoothed count (T={zoom1}s)')
 
 		# Zoomed bin count 2
-		zoom = ZOOM_TIMES[1]
+		zoom2 = (ZOOM_START_TIMES[0] * Tmax, ZOOM_START_TIMES[0] * Tmax + ZOOM_DURATION)
 		ax = fig.add_subplot(spec[3,:])
 		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
 		ax.set_xlim(0, Tmax)
 		ax2=ax.twinx()
 		ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
 		plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
-		ax.set_xlim(*zoom)
-		ax.set_title('Binned spike count ; smoothed count (late 60s zoom)')
+		ax.set_xlim(*zoom2)
+		ax.set_title(f'Binned spike count ; smoothed count (T={zoom2}s)')
 
 		# raster
 		ax = fig.add_subplot(spec[4,:])
@@ -322,20 +318,18 @@ def run_threshold(
 		ax.set_title('Spike raster')
 
 		# Zoomed raster 1
-		zoom = ZOOM_TIMES[0]
 		ax = fig.add_subplot(spec[5,:])
 		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
 		plot_on_off_overlay(on_off_df, ax=ax)
-		ax.set_xlim(*zoom)
-		ax.set_title('Spike raster (early 60s zoom)')
+		ax.set_xlim(*zoom1)
+		ax.set_title(f'Spike raster (T={zoom1}s)')
 
 		# Zoomed raster 2
-		zoom = ZOOM_TIMES[1]
 		ax = fig.add_subplot(spec[6,:])
 		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
 		plot_on_off_overlay(on_off_df, ax=ax)
-		ax.set_xlim(*zoom)
-		ax.set_title('Spike raster (late 60s zoom)')
+		ax.set_xlim(*zoom2)
+		ax.set_title(f'Spike raster (T={zoom2}s)')
 
 		if show:
 			plt.show()
