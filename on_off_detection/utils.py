@@ -2,6 +2,35 @@ import pandas as pd
 import numpy as np
 
 
+def subset_spike_times_list(spike_times_list, bouts_df):
+	"""Subset spikes within bouts.
+	
+	Return spike times relative to concatenated bouts.
+	"""
+	assert "start_time" in bouts_df.columns
+	assert "end_time" in bouts_df.columns
+	# TODO Validate that ther's no overlapping bout
+
+	return [
+		subset_spike_times(spike_times, bouts_df) for spike_times in spike_times_list
+	]
+
+
+def subset_spike_times(spike_times, bouts_df):
+	res = []
+	current_concatenated_start = 0
+	for _, row in bouts_df.iterrows():
+		start, end = row.start_time, row.end_time
+		duration = end - start
+		res += [
+			s - start + current_concatenated_start
+			for s in spike_times
+			if s >= start and s <= end
+		]
+		current_concatenated_start += duration
+	return res
+
+
 def merge_spike_times(spike_times_list):
 	return sorted([inner for outer in spike_times_list for inner in outer])
 
@@ -28,7 +57,7 @@ def state_ends(states_list, state):
 		next_other_start = next((st for st in other_starts if st > start_i), None)
 		if not next_other_start:
 			# Last bout
-		    ends.append(len(states_list))
+			ends.append(len(states_list))
 		else:
 			ends.append(next_other_start)
 		# For speed

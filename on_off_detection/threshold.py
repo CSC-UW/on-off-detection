@@ -62,6 +62,7 @@ THRESHOLD_PARAMS = {
 	'gap_threshold': None,
 }
 
+# TODO: pass as kwarg
 ZOOM_TIMES = [
 	(30, 90),
 	# (3438, 3498),  # Doppio

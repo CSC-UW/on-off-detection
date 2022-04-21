@@ -4,6 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from .threshold import THRESHOLD_PARAMS, run_threshold
+from .utils import subset_spike_times_list
 
 METHODS = {
 	'threshold': run_threshold,
@@ -14,27 +15,78 @@ DF_PARAMS = {
 }
 
 
-def _run_cluster(
-	i,
+def _run_detection(
 	cluster_id,
 	detection_func,
 	spike_times_list,
 	Tmax,
+	bouts_df,
 	params,
 	output_dir,
 	debug_plot_filename,
+	i=None,
 ):
-	print(f'Run #{i+1}/N')
-	cluster_on_off_df = detection_func(
+	if i is not None:
+		print(f'Run #{i+1}/N, cluster_id={cluster_id}')
+
+	if bouts_df is not None:
+		spike_times_list = subset_spike_times_list(
+			spike_times_list,
+			bouts_df
+		)  # Times in cut-and-concatenated bouts
+		Tmax = bouts_df.duration.sum()
+		print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
+
+	on_off_df = detection_func(
 		spike_times_list, Tmax, params,
 		save=True, output_dir=output_dir,
 		filename=f'{debug_plot_filename}_cluster={cluster_id}',
 	)
-	cluster_on_off_df['cluster_id'] = cluster_id
-	return cluster_on_off_df
+	on_off_df['cluster_id'] = cluster_id
+
+	if bouts_df is not None:
+		# Add bout info for computed on_off periods
+		# - 'state' from original bouts_df
+		# - Mark on/off periods that span non-consecutive bouts as 'interbout'
+		# - Mark first and last bout as 'interbout'
+		# - recover start/end time in original (not cut/concatenated) time (Kinda nasty)
+		on_off_df['bout_state'] = 'interbout'
+		bout_concat_start_time = 0  # Start time in cut and concatenated data
+		for i, row in bouts_df.iterrows():
+			print(i)
+			bout_concat_end_time = bout_concat_start_time + row['duration']
+			bout_on_off = (
+				(on_off_df['start_time'] > bout_concat_start_time)
+				& (on_off_df['end_time'] < bout_concat_end_time)
+			)  # Strict comparison also excludes first and last bout
+			# start and end time in cut-concatenated data
+			on_off_df.loc[bout_on_off, 'start_time_relative_to_concatenated_bouts'] = on_off_df.loc[bout_on_off, 'start_time']
+			on_off_df.loc[bout_on_off, 'end_time_relative_to_concatenated_bouts'] = on_off_df.loc[bout_on_off, 'end_time']
+			# Start and end time in original recording 
+			bout_offset = - bout_concat_start_time + row['start_time'] # Offset from concat to real time for this bout
+			# print('offset', bout_offset)
+			on_off_df.loc[bout_on_off, 'start_time'] = on_off_df.loc[bout_on_off, 'start_time'] + bout_offset
+			on_off_df.loc[bout_on_off, 'end_time'] = on_off_df.loc[bout_on_off, 'end_time'] + bout_offset
+			# bout information
+			bout_state = row['state']
+			on_off_df.loc[bout_on_off, 'bout_state'] = bout_state
+			on_off_df.loc[bout_on_off, 'bout_idx'] = row.name
+			on_off_df.loc[bout_on_off, 'bout_concat_start_time'] = row['start_time']
+			on_off_df.loc[bout_on_off, 'bout_end_time'] = row['end_time']
+			on_off_df.loc[bout_on_off, 'bout_duration'] = row['duration']
+			# Go to next bout
+			bout_concat_start_time = bout_concat_end_time
+
+		# Total state time per condition
+		for bout_state in bouts_df['state'].unique():
+			total_state_time = bouts_df[bouts_df['state'] == bout_state].duration.sum()
+			on_off_df.loc[on_off_df['bout_state'] == bout_state, 'bout_state_total_time'] = total_state_time
+		
+		on_off_df = on_off_df[on_off_df['bout_state'] != 'interbout'].copy()
+
+	return on_off_df
 
 
-# TODO: Document
 class OnOffModel(object):
 	"""Run ON and OFF-state detection from MUA data.
 	
@@ -46,12 +98,22 @@ class OnOffModel(object):
 		Tmax: End time of recording.
 		params: Dict of parameters. Mandatory params depend of <method>
 		output_dir: Where we save output figures and summary statistics.
+	
+	Kwargs:
+		bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
+			'start_time', 'end_time', 'duration' and 'state' columns. If
+			provided, we consider only spikes within these bouts for on-off
+			detection (by cutting-and-concatenating the trains of each cluster).
+			The "state", "start_time" and "end_time" of the bout each on or off
+			period pertains to is saved in the "bout_state", "bout_start_time"
+			and "bout_end_time" columns. ON or OFF periods that are not STRICTLY
+			comprised within bouts are dismissed ()
 	"""
 
 	def __init__(
 		self, spike_times_list, cluster_ids=None, pooled_detection=True,
-		params=None, Tmax=None, method='threshold',
-		output_dir=None, debug_plot_filename=None, hyp=None, n_jobs=50,
+		params=None, Tmax=None, method='threshold', bouts_df=None,
+		output_dir=None, debug_plot_filename=None, n_jobs=50,
 	):
 		self.spike_times_list = [sorted(spike_times) for spike_times in spike_times_list]
 		if cluster_ids is not None:
@@ -71,12 +133,14 @@ class OnOffModel(object):
 		if params is None:
 			params = {}
 		self.params.update(params)
-		self.hyp = hyp
+		if bouts_df is not None:
+			assert all([c in bouts_df for c in ['start_time', 'end_time', 'state', 'duration']])
+		self.bouts_df = bouts_df
 		self.n_jobs = n_jobs
 		# Output stuff
-		self.output_dir = output_dir
-		if output_dir is not None:
-			self.output_dir = Path(output_dir)
+		if output_dir is None:
+			output_dir='.'
+		self.output_dir = Path(output_dir)
 		self.debug_plot_filename=debug_plot_filename
 		self.on_off_df = None
 		self.stats = None
@@ -84,38 +148,49 @@ class OnOffModel(object):
 	def run(self):
 		if self.pooled_detection:
 			print("Run on-off detection on pooled data")
-			self.on_off_df = self.detection_func(
-				self.spike_times_list, self.Tmax, self.params,
-				save=True, output_dir=self.output_dir/'plots',
-				filename=self.debug_plot_filename,
+			self.on_off_df = _run_detection(
+				'mua',
+				self.detection_func,
+				self.spike_times_list,
+				self.Tmax,
+				self.bouts_df,
+				self.params,
+				self.output_dir/'plots',
+				self.debug_plot_filename,
+				i=None,
 			)
 		else:
-			print(f"Run on-off detection for each cluster (N={len(self.cluster_ids)})")
+			print(f"Run on-off detection for each cluster independently (N={len(self.cluster_ids)})")
 
 
 			if self.n_jobs == 1:
 				on_off_dfs = []
 				for i, cluster_id in tqdm(enumerate(range(len(self.cluster_ids)))):
-					print(f'Run #{i+1}/N')
-					cluster_on_off_df = self.detection_func(
-						[self.spike_times_list[i]], self.Tmax, self.params,
-						save=True, output_dir=self.output_dir/'plots',
-						filename=f'{self.debug_plot_filename}_cluster={cluster_id}',
-					)
-					cluster_on_off_df['cluster_id'] = cluster_id
-					on_off_dfs.append(cluster_on_off_df)
-			else:
-				from joblib import Parallel, delayed
-				on_off_dfs = Parallel(n_jobs=self.n_jobs, backend='multiprocessing')(
-					delayed(_run_cluster)(
-						i,
+					cluster_on_off_df = _run_detection(
 						cluster_id,
 						self.detection_func,
 						[self.spike_times_list[i]],
 						self.Tmax,
+						self.bouts_df,
 						self.params,
 						self.output_dir/'plots',
-						self.debug_plot_filename
+						self.debug_plot_filename,
+						i=i,
+					)
+					on_off_dfs.append(cluster_on_off_df)
+			else:
+				from joblib import Parallel, delayed
+				on_off_dfs = Parallel(n_jobs=self.n_jobs, backend='multiprocessing')(
+					delayed(_run_detection)(
+						cluster_id,
+						self.detection_func,
+						[self.spike_times_list[i]],
+						self.Tmax,
+						self.bouts_df,
+						self.params,
+						self.output_dir/'plots',
+						self.debug_plot_filename,
+						i,
 					)
 					for i, cluster_id in enumerate(self.cluster_ids)
 				)
