@@ -230,6 +230,7 @@ def run_threshold(
 				color='red',
 			)
 		ax.set_yscale('log')
+		ax.set_xscale('log')
 		plt.axvline(x=count_threshold, color='red')
 		ax.set_title(f'Spike count histogram ;\n count threshold = {count_threshold}')
 
@@ -243,6 +244,8 @@ def run_threshold(
 			align='center',
 			color='black'
 		)
+		ax.set_yscale('log')
+		ax.set_xscale('log')
 		ax.set_ylabel('N')
 		ax.set_xlabel('Off period duration (s)')
 		plt.axvline(x=gap_threshold, color='red')
