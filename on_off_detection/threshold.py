@@ -62,7 +62,7 @@ THRESHOLD_PARAMS = {
 	'gap_threshold': None,
 }
 
-ZOOM_START_TIMES = (0.3, 0.6) # Ratio of Tmax
+ZOOM_START_TIMES = (0.1, 0.8) # Ratio of Tmax
 ZOOM_DURATION = 60
 
 def run_threshold(
@@ -301,7 +301,7 @@ def run_threshold(
 		ax.set_title(f'Binned spike count ; smoothed count (T={zoom1}s)')
 
 		# Zoomed bin count 2
-		zoom2 = (ZOOM_START_TIMES[0] * Tmax, ZOOM_START_TIMES[0] * Tmax + ZOOM_DURATION)
+		zoom2 = (ZOOM_START_TIMES[1] * Tmax, ZOOM_START_TIMES[1] * Tmax + ZOOM_DURATION)
 		ax = fig.add_subplot(spec[3,:])
 		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
 		ax.set_xlim(0, Tmax)
