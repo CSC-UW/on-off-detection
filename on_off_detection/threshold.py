@@ -94,22 +94,34 @@ def run_threshold(
 		bins=np.arange(0, Tmax+ params['binsize'], params['binsize']),
 	)
 	bin_centers = np.array(bins[0:-1]) + params['binsize']/2
-	smoothed_bin_counts = gaussian_filter1d(
-		bin_counts, params['smooth_sd_counts'], output=float,
-	)
 
-	count_hist, hist_bins = np.histogram(
-		smoothed_bin_counts,
-		bins=np.arange(
-			min(smoothed_bin_counts),
-			max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
-			params['binsize_smoothed_count_hist']
-		) - 0.001,
-	)
+	if params['smooth_sd_counts'] is not None:
+		smoothed_bin_counts = gaussian_filter1d(
+			bin_counts, params['smooth_sd_counts'], output=float,
+		)
+		count_hist, hist_bins = np.histogram(
+			smoothed_bin_counts,
+			bins=np.arange(
+				min(smoothed_bin_counts),
+				max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
+				params['binsize_smoothed_count_hist']
+			) - 0.001,
+		)
+	else:
+		count_hist, hist_bins = np.histogram(
+			bin_counts,
+			bins=np.arange(
+				min(smoothed_bin_counts),
+				max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
+				params['binsize_smoothed_count_hist']
+			) - 0.001,
+		)
+
 	if params.get('smooth_sd_smoothed_count_hist', None) is not None:
 		smoothed_count_hist = gaussian_filter1d(
 			count_hist, params['smooth_sd_smoothed_count_hist'], output=float,
 		)
+
 	if params.get('count_threshold', None) is not None:
 		print("Get count threshold from params...", end="")
 		count_threshold = params['count_threshold']
