@@ -354,7 +354,9 @@ def run_threshold(
 			output_dir = Path(output_dir)
 			output_dir.mkdir(parents=True, exist_ok=True)
 			if filename is None:
-				filename = 'on_off_summary_threshold'
+				filename = 'on_off_summary_threshold.png'
+			else:
+				filename = filename.strip('.png') + '.png'
 			print(f"Save summary fig at {output_dir/filename}")
 			fig.savefig(output_dir/filename)
 	
