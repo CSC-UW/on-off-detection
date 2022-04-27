@@ -44,19 +44,22 @@ def _run_detection(
 	)
 	on_off_df['cluster_id'] = cluster_id
 
+	print(on_off_df)
+
 	if bouts_df is not None:
 		# Add bout info for computed on_off periods
 		# - 'state' from original bouts_df
 		# - Mark on/off periods that span non-consecutive bouts as 'interbout'
 		# - Mark first and last bout as 'interbout'
 		# - recover start/end time in original (not cut/concatenated) time (Kinda nasty)
+		on_off_orig = on_off_df.copy()
 		on_off_df['bout_state'] = 'interbout'
 		bout_concat_start_time = 0  # Start time in cut and concatenated data
 		for i, row in bouts_df.iterrows():
 			bout_concat_end_time = bout_concat_start_time + row['duration']
 			bout_on_off = (
-				(on_off_df['start_time'] > bout_concat_start_time)
-				& (on_off_df['end_time'] < bout_concat_end_time)
+				(on_off_orig['start_time'] > bout_concat_start_time)
+				& (on_off_orig['end_time'] < bout_concat_end_time)
 			)  # Strict comparison also excludes first and last bout
 			# start and end time in cut-concatenated data
 			on_off_df.loc[bout_on_off, 'start_time_relative_to_concatenated_bouts'] = on_off_df.loc[bout_on_off, 'start_time']
@@ -81,7 +84,7 @@ def _run_detection(
 			total_state_time = bouts_df[bouts_df['state'] == bout_state].duration.sum()
 			on_off_df.loc[on_off_df['bout_state'] == bout_state, 'bout_state_total_time'] = total_state_time
 		
-		on_off_df = on_off_df[on_off_df['bout_state'] != 'interbout'].copy()
+		on_off_df = on_off_df[on_off_df['bout_state'] != 'interbout'].reset_index(drop=True)
 
 	return on_off_df
 
