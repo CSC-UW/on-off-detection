@@ -49,7 +49,8 @@ from ecephys.plot import plot_on_off_overlay, plot_spike_train
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelextrema
 
-from . import utils
+from .. import utils
+from ..exceptions import NoHistogramMinException
 
 
 THRESHOLD_PARAMS = {
@@ -126,13 +127,23 @@ def run_threshold(
 		print("Get count threshold from params...", end="")
 		count_threshold = params['count_threshold']
 	else:
-		## Get "count threshold" from histogram of smoothed bin counts
-		if params.get('smooth_sd_smoothed_count_hist', None) is None:
-			print("Get count threshold from count histogram...", end="")
-			count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
-		else:
-			print("Get count threshold from smoothed count histogram...", end="")
-			count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+		# ## Get "count threshold" from histogram of smoothed bin counts
+		# if params.get('smooth_sd_smoothed_count_hist', None) is None:
+		# 	print("Get count threshold from count histogram...", end="")
+		# 	count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+		# else:
+		# 	print("Get count threshold from smoothed count histogram...", end="")
+		# 	count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+		try:
+			## Get "count threshold" from histogram of smoothed bin counts
+			if params.get('smooth_sd_smoothed_count_hist', None) is None:
+				print("Get count threshold from count histogram...", end="")
+				count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+			else:
+				print("Get count threshold from smoothed count histogram...", end="")
+				count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+		except IndexError:
+			raise NoHistogramMinException()
 	print(f'Count threshold = {count_threshold}')
 
 	# Active/silent periods

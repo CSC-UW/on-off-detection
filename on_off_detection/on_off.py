@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from .threshold import THRESHOLD_PARAMS, run_threshold
+from .methods.threshold import THRESHOLD_PARAMS, run_threshold
 from .utils import subset_trains_list
 
 METHODS = {
