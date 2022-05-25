@@ -7,8 +7,10 @@ doi: https://doi.org/10.1162/neco.2009.06-08-799
 
 Translated to python 05/22 by Tom Bugnon from MATLAB code provided by Zhe Sage Chen
 
-Log: 
+Differences from original MATLAB code: 
 - Use all bins with shorter window for history at beginning
+- Use numpy RNG in newton_ralphson (So different output as MATLAB) ( TODO: https://stackoverflow.com/a/36823993 )
+- Max number of iterations is params['n_iter_EM'] rather than n_iter_EM - 1
 """
 
 import numpy as np
@@ -211,7 +213,7 @@ def _run_hmmem(
     t = 0
     log_P = np.empty((n_iter_EM,), dtype=float)
     diff_log_P = 10
-    while t < (n_iter_EM - 1) and diff_log_P > 0: # -1 for consistency with original MATLAB algo
+    while t < n_iter_EM and diff_log_P > 0: # Differ from original MATLAB algo here (it uses n_iter_EM - 1)
 
         ## E-step: forward algorithm
 
@@ -387,8 +389,7 @@ def newton_ralphson(
 
     # Update mu
     temp0 = np.sum(bin_spike_count, axis=None)
-    # update = init_mu + 0.01 * np.random.randn()  # Differ from MATLAB output here
-    update = init_mu + 0.01 * 0.1  # TODO
+    update = init_mu + 0.01 * np.random.randn()  # Differ from MATLAB output here
     for _ in range(n_iter):
         g = np.sum(
             np.exp(
@@ -418,8 +419,7 @@ def newton_ralphson(
 
     # Update alphaa
     temp1 = np.sum(bin_spike_count * Z, axis=None)
-    # update = init_alphaa + 0.01 * np.random.randn()  # Differ from MATLAB output here
-    update = init_alphaa + 0.01 * 0.2 # TODO
+    update = init_alphaa + 0.01 * np.random.randn()  # Differ from MATLAB output here
     for _ in range(n_iter):
         g = np.sum(
             Z * np.exp(
@@ -451,8 +451,7 @@ def newton_ralphson(
     d = bin_history_spike_count.shape[0]
     if d == 1:
         temp2 = np.sum(bin_spike_count * bin_history_spike_count, axis=None)
-        # update = init_betaa + 0.01 * np.random.randn()  # Differ from MATLAB output here
-        update = init_betaa + 0.01 * 0.3
+        update = init_betaa + 0.01 * np.random.randn()  # Differ from MATLAB output here
         for _ in range(n_iter):
             g = np.sum(
                 bin_history_spike_count * np.exp(
