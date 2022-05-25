@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import factorial
 
-from ..utils import merge_trains_list
+from .. import utils
 
 HMMEM_PARAMS = {
     'binsize': 0.010, # (s) (Discrete algorithm)
@@ -26,25 +26,26 @@ HMMEM_PARAMS = {
     'init_mu': -0.5,
     'init_alphaa': 1.0,
     'init_betaa': 0.0,
+    'gap_threshold': None, # Merge active states separated by less than gap_threhsold
 }
 
 
 # TODO: Nx1-array for betaa (one value per "history window")
 def run_hmmem(
     trains_list,
-	Tmax,
-	params,
-	output_dir=None,
+    Tmax,
+    params,
+    output_dir=None,
     verbose=False,
 ):
-    # Params check
+    # Params
     assert set(params.keys()) == set(HMMEM_PARAMS.keys())
 
     # Merge and bin all trains
-    spike_train = merge_trains_list(trains_list)
+    train = utils.merge_trains_list(trains_list)
     bins = np.arange(0, Tmax + params['binsize'], params['binsize'])
     bin_spike_count, _ = np.histogram(
-        spike_train, bins
+        train, bins
     )
     bin_spike_count = bin_spike_count.astype(int)
 
@@ -67,7 +68,7 @@ def run_hmmem(
     # bin_spike_count = bin_spike_count[:,10:]
     # bin_history_spike_count = bin_history_spike_count[:, 10:]
 
-    return _run_hmmem(
+    S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P = _run_hmmem(
         bin_spike_count,
         bin_history_spike_count,
         params['init_A'],
@@ -78,6 +79,68 @@ def run_hmmem(
         params['n_iter_newton_ralphson'],
         verbose=verbose
     )
+
+    # Return identical result from MATLAB original code
+    # return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P
+
+    ## Remove short OFF states and return as pd.Dataframe
+
+    active_bin = S[0, :]  # 1d
+    assert all([s in [0, 1] for s in active_bin])
+    srate = 1 / params['binsize'] # "Sampling rate" of returned binned states (Hz)
+
+    # Merge active states separated by less than gap_threshold
+    if params['gap_threshold'] is not None and params['gap_threshold'] > 0:
+        if verbose:
+            print("Merge closeby on-periods...", end="")
+        off_durations = utils.state_durations(active_bin, 0, srate=srate)
+        off_starts = utils.state_starts(active_bin, 0)
+        off_ends = utils.state_ends(active_bin, 0)
+        N_merged = 0
+        for i, off_dur in enumerate(off_durations):
+            if off_dur <= params['gap_threshold']:
+                active_bin[off_starts[i]:off_ends[i]+1] = 1
+                N_merged += 1
+        print(f'Merged N={N_merged} active periods')
+
+    # Return df
+    # all in (sec)
+    print("Get final on/off periods df...", end="")
+    on_starts = utils.state_starts(active_bin, 1) / srate
+    off_starts = utils.state_starts(active_bin, 0) / srate
+    on_ends = utils.state_ends(active_bin, 1) / srate
+    off_ends = utils.state_ends(active_bin, 0) / srate
+    on_durations = utils.state_durations(
+        active_bin, 1, srate=srate,
+    )
+    off_durations = utils.state_durations(
+        active_bin, 0, srate=srate,
+    )
+    N_on = len(on_starts)
+    N_off = len(off_starts)
+
+    # TODO: Return _run_hmmem info bin by bin?
+    N_on_off = N_on + N_off
+    on_off_df = pd.DataFrame({
+        'state': ['on' for i in range(N_on)] + ['off' for i in range(N_off)],
+        'start_time': list(on_starts) + list(off_starts),
+        'end_time': list(on_ends) + list(off_ends),
+        'duration': list(on_durations) + list(off_durations),
+        'n_clusters': len(trains_list),
+        'cumFR': len(train)/Tmax,
+        'alphaa': alphaa,
+        'betaa': [betaa] * N_on_off,
+        'mu': mu,
+        'A': [A] * N_on_off,
+        'log_L': log_L,
+        **{
+            k: [v] * N_on_off for k, v in params.items()
+        },
+    }).sort_values(by='start_time').reset_index(drop=True)
+
+    if verbose:
+        print("Done.")
+    return on_off_df
 
 
 # TODO: Nx1-array for betaa (one value per "history window")
@@ -92,14 +155,6 @@ def _run_hmmem(
     n_iter_newton_ralphson,
     verbose=True,
 ):
-
-    # Debug
-    print(bin_spike_count.shape)
-    print(bin_history_spike_count.shape)
-    print(init_A, init_alphaa, init_betaa, init_mu)
-
-    print(sum(bin_history_spike_count[0,:]))
-    print(sum(bin_spike_count[0,:]))
 
     # Param check
     bin_spike_count = np.atleast_1d(bin_spike_count).astype(int)
@@ -428,79 +483,3 @@ def newton_ralphson(
         raise NotImplementedError()
 
     return alphaa, betaa, mu
-
-
-if __name__ == '__main__':
-    from pathlib import Path
-    DATA_PATH = Path('/home/tbugnon/projects/on_off_detection/dev/data_hmmem')
-    inst_state = np.load(DATA_PATH/"inst_state.npy")
-    inst_lambda_cif = np.load(DATA_PATH/"inst_lambda_cif.npy")
-    inst_spike_count = np.load(DATA_PATH/"inst_spike_count.npy")
-
-    bin_state = np.load(DATA_PATH/"window_state.npy")
-    bin_spike_count = np.load(DATA_PATH/"window_spike_count.npy")
-    bin_history_spike_count = np.load(DATA_PATH/"window_history_spike_count.npy")
-    bin_smoothed_rate = np.load(DATA_PATH/"window_smoothed_rate.npy")
-
-    init_params = np.load(DATA_PATH/"init_parameters.npy")
-    init_mu, init_alphaa, init_betaa = init_params[:,0]
-    init_A = np.load(DATA_PATH/"init_transition_matrix.npy")
-
-    n_iter_EM = 100
-    n_iter_newton_ralphson = 30
-    # n_iter_EM = 2
-
-    T = 30 # 30 sec
-    delta = 0.001 # 10ms
-    K = int(T/delta) # N bins
-
-    n0 = 10
-    n = int(K/10)
-
-    params = {
-        'binsize': 0.010, # (s) (Discrete algorithm)
-        'history_window_nbins': 10, # Number of bins used to define spike history
-        'n_iter_EM': 100,
-        'n_iter_newton_ralphson': 30,
-        'init_A': np.array([[0.1, 0.9], [0.05, 0.95]]), # Initial transition probability matrix
-        'init_mu': -0.5,
-        'init_alphaa': 1.0,
-        'init_betaa': 0.0,
-    }
-
-    print('_run')
-    S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P = _run_hmmem(
-        bin_spike_count[:, n0:n],
-        bin_history_spike_count[:, n0:n],
-        init_A,
-        init_alphaa,
-        init_betaa,
-        init_mu,
-        n_iter_EM,
-        n_iter_newton_ralphson,
-        verbose=True,
-    )
-
-    # Get to same result via run_hmmem()
-    # Trains from spike count
-    train = []
-    bins = np.arange(0, T+delta, delta)
-    for i, count in enumerate(inst_spike_count[0,:]):
-        spike_time = (bins[i] + bins[i+1])/2
-        train += [spike_time] * int(count)
-    
-    params['init_mu'] = init_mu
-    params['init_alphaa'] = init_alphaa
-    params['init_betaa'] = init_betaa
-    params['n_iter_EM'] = n_iter_EM
-
-    print('run')
-    bin_spike_count_, bin_history_spike_count_ = run_hmmem(
-    # S_, prob_S_, alphaa_, betaa_, mu_, A, B, p0, log_L, log_P = run_hmmem(
-        [train],
-        T,
-        params=params,
-        verbose=True
-    )
-
-    print(S)
