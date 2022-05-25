@@ -40,7 +40,7 @@ def run_hmmem(
     output_dir=None,
     filename=None, # TODO harmonize
     save=None, # TODO harmonize
-    verbose=False,
+    verbose=True,
 ):
     # Params
     assert set(params.keys()) == set(HMMEM_PARAMS.keys())
@@ -105,11 +105,13 @@ def run_hmmem(
             if off_dur <= params['gap_threshold']:
                 active_bin[off_starts[i]:off_ends[i]+1] = 1
                 N_merged += 1
-        print(f'Merged N={N_merged} active periods')
+        if verbose:
+            print(f'Merged N={N_merged} active periods')
 
     # Return df
     # all in (sec)
-    print("Get final on/off periods df...", end="")
+    if verbose:
+        print("Get final on/off periods df...")
     on_starts = utils.state_starts(active_bin, 1) / srate
     off_starts = utils.state_starts(active_bin, 0) / srate
     on_ends = utils.state_ends(active_bin, 1) / srate
@@ -144,8 +146,6 @@ def run_hmmem(
         },
     }).sort_values(by='start_time').reset_index(drop=True)
 
-    if verbose:
-        print("Done.")
     return on_off_df
 
 

@@ -73,7 +73,8 @@ def run_threshold(
     output_dir=None,
     show=True,
     save=False,
-    filename=None
+    filename=None,
+    verbose=True,  # TODO
 ):
     """Return dataframe of on/off periods.
 

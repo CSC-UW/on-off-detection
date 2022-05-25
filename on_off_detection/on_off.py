@@ -27,10 +27,12 @@ def _run_detection(
 	params,
 	output_dir,
 	debug_plot_filename,
+	verbose=True,
 	i=None,
 ):
 	if i is not None:
-		print(f'Run #{i+1}/N, cluster_id={cluster_id}')
+		if verbose:
+			print(f'Run #{i+1}/N, cluster_id={cluster_id}')
 
 	if bouts_df is not None:
 		trains_list = subset_trains_list(
@@ -38,18 +40,20 @@ def _run_detection(
 			bouts_df
 		)  # Times in cut-and-concatenated bouts
 		Tmax = bouts_df.duration.sum()
-		print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
+		if verbose:
+			print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
 
 	on_off_df = detection_func(
 		trains_list, Tmax, params,
 		save=True, output_dir=output_dir,
 		filename=f'{debug_plot_filename}_cluster={cluster_id}',
+		verbose=verbose,
 	)
 	on_off_df['cluster_id'] = cluster_id
 
-	print(on_off_df)
-
 	if bouts_df is not None:
+		if verbose:
+			print("Recover original start/end times from non-cut-and-concat data")
 		# Add bout info for computed on_off periods
 		# - 'state' from original bouts_df
 		# - Mark on/off periods that span non-consecutive bouts as 'interbout'
@@ -119,6 +123,7 @@ class OnOffModel(object):
 		self, trains_list, cluster_ids=None, pooled_detection=True,
 		params=None, Tmax=None, method='threshold', bouts_df=None,
 		output_dir=None, debug_plot_filename=None, n_jobs=50,
+		verbose=True
 	):
 		self.trains_list = [sorted(train) for train in trains_list]
 		if cluster_ids is not None:
@@ -143,6 +148,7 @@ class OnOffModel(object):
 		self.bouts_df = bouts_df
 		self.n_jobs = n_jobs
 		# Output stuff
+		self.verbose=verbose
 		if output_dir is None:
 			output_dir='.'
 		self.output_dir = Path(output_dir)
@@ -152,7 +158,8 @@ class OnOffModel(object):
 
 	def run(self):
 		if self.pooled_detection:
-			print("Run on-off detection on pooled data")
+			if self.verbose:
+				print("Run on-off detection on pooled data")
 			self.on_off_df = _run_detection(
 				'mua',
 				self.detection_func,
@@ -162,10 +169,12 @@ class OnOffModel(object):
 				self.params,
 				self.output_dir/'plots',
 				self.debug_plot_filename,
+				self.verbose,
 				i=None,
 			)
 		else:
-			print(f"Run on-off detection for each cluster independently (N={len(self.cluster_ids)})")
+			if self.verbose:
+				print(f"Run on-off detection for each cluster independently (N={len(self.cluster_ids)})")
 
 
 			if self.n_jobs == 1:
@@ -180,6 +189,7 @@ class OnOffModel(object):
 						self.params,
 						self.output_dir/'plots',
 						self.debug_plot_filename,
+						self.verbose,
 						i=i,
 					)
 					on_off_dfs.append(cluster_on_off_df)
@@ -195,6 +205,7 @@ class OnOffModel(object):
 						self.params,
 						self.output_dir/'plots',
 						self.debug_plot_filename,
+						self.verbose,
 						i,
 					)
 					for i, cluster_id in enumerate(self.cluster_ids)
