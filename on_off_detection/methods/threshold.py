@@ -54,321 +54,321 @@ from ..exceptions import NoHistogramMinException
 
 
 THRESHOLD_PARAMS = {
-	'binsize': 0.010,
-	'smooth_sd_counts': 3, # Units of binsize
-	'binsize_smoothed_count_hist': 0.02, # 
-	'smooth_sd_smoothed_count_hist': 1, # Units of "binsize_smoothed_count_hist"
-	'binsize_duration_hist': 0.01, # 
-	'count_threshold': None,
-	'gap_threshold': None,
+    'binsize': 0.010,
+    'smooth_sd_counts': 3, # Units of binsize
+    'binsize_smoothed_count_hist': 0.02, # 
+    'smooth_sd_smoothed_count_hist': 1, # Units of "binsize_smoothed_count_hist"
+    'binsize_duration_hist': 0.01, # 
+    'count_threshold': None,
+    'gap_threshold': None,
 }
 
 ZOOM_START_TIMES = (0.1, 0.8) # Ratio of Tmax
 ZOOM_DURATION = 60
 
 def run_threshold(
-	trains_list,
-	Tmax,
-	params,
-	output_dir=None,
-	show=True,
-	save=False,
-	filename=None
+    trains_list,
+    Tmax,
+    params,
+    output_dir=None,
+    show=True,
+    save=False,
+    filename=None
 ):
-	"""Return dataframe of on/off periods.
+    """Return dataframe of on/off periods.
 
-	Args:
-		trains_list: List of array likes.
+    Args:
+        trains_list: List of array likes.
 
-	Return:
-		pd.DataFrame: df with 'state', 'start_time', 'end_time' and 'duration' columns
-	"""
-	print(f"method=threshold, params: {params}")
-	srate = int(1/params['binsize'])
+    Return:
+        pd.DataFrame: df with 'state', 'start_time', 'end_time' and 'duration' columns
+    """
+    print(f"method=threshold, params: {params}")
+    srate = int(1/params['binsize'])
 
-	train = utils.merge_trains_list(trains_list)
-	print(f"Merged N={len(trains_list)} spike trains for on/off detection")
-	print(f"Merged pop. rate = {len(train)/Tmax}Hz, N={len(train)} spikes")
+    train = utils.merge_trains_list(trains_list)
+    print(f"Merged N={len(trains_list)} spike trains for on/off detection")
+    print(f"Merged pop. rate = {len(train)/Tmax}Hz, N={len(train)} spikes")
 
-	bin_counts, bins = np.histogram(
-		train,
-		bins=np.arange(0, Tmax+ params['binsize'], params['binsize']),
-	)
-	bin_centers = np.array(bins[0:-1]) + params['binsize']/2
+    bin_counts, bins = np.histogram(
+        train,
+        bins=np.arange(0, Tmax+ params['binsize'], params['binsize']),
+    )
+    bin_centers = np.array(bins[0:-1]) + params['binsize']/2
 
-	if params['smooth_sd_counts'] is not None:
-		smoothed_bin_counts = gaussian_filter1d(
-			bin_counts, params['smooth_sd_counts'], output=float,
-		)
-		count_hist, hist_bins = np.histogram(
-			smoothed_bin_counts,
-			bins=np.arange(
-				min(smoothed_bin_counts),
-				max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
-				params['binsize_smoothed_count_hist']
-			) - 0.001,
-		)
-	else:
-		count_hist, hist_bins = np.histogram(
-			bin_counts,
-			bins=np.arange(
-				min(smoothed_bin_counts),
-				max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
-				params['binsize_smoothed_count_hist']
-			) - 0.001,
-		)
+    if params['smooth_sd_counts'] is not None:
+        smoothed_bin_counts = gaussian_filter1d(
+            bin_counts, params['smooth_sd_counts'], output=float,
+        )
+        count_hist, hist_bins = np.histogram(
+            smoothed_bin_counts,
+            bins=np.arange(
+                min(smoothed_bin_counts),
+                max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
+                params['binsize_smoothed_count_hist']
+            ) - 0.001,
+        )
+    else:
+        count_hist, hist_bins = np.histogram(
+            bin_counts,
+            bins=np.arange(
+                min(smoothed_bin_counts),
+                max(smoothed_bin_counts) + params['binsize_smoothed_count_hist'],
+                params['binsize_smoothed_count_hist']
+            ) - 0.001,
+        )
 
-	if params.get('smooth_sd_smoothed_count_hist', None) is not None:
-		smoothed_count_hist = gaussian_filter1d(
-			count_hist, params['smooth_sd_smoothed_count_hist'], output=float,
-		)
+    if params.get('smooth_sd_smoothed_count_hist', None) is not None:
+        smoothed_count_hist = gaussian_filter1d(
+            count_hist, params['smooth_sd_smoothed_count_hist'], output=float,
+        )
 
-	if params.get('count_threshold', None) is not None:
-		print("Get count threshold from params...", end="")
-		count_threshold = params['count_threshold']
-	else:
-		# ## Get "count threshold" from histogram of smoothed bin counts
-		# if params.get('smooth_sd_smoothed_count_hist', None) is None:
-		# 	print("Get count threshold from count histogram...", end="")
-		# 	count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
-		# else:
-		# 	print("Get count threshold from smoothed count histogram...", end="")
-		# 	count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
-		try:
-			## Get "count threshold" from histogram of smoothed bin counts
-			if params.get('smooth_sd_smoothed_count_hist', None) is None:
-				print("Get count threshold from count histogram...", end="")
-				count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
-			else:
-				print("Get count threshold from smoothed count histogram...", end="")
-				count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
-		except IndexError:
-			raise NoHistogramMinException()
-	print(f'Count threshold = {count_threshold}')
+    if params.get('count_threshold', None) is not None:
+        print("Get count threshold from params...", end="")
+        count_threshold = params['count_threshold']
+    else:
+        # ## Get "count threshold" from histogram of smoothed bin counts
+        # if params.get('smooth_sd_smoothed_count_hist', None) is None:
+        # 	print("Get count threshold from count histogram...", end="")
+        # 	count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+        # else:
+        # 	print("Get count threshold from smoothed count histogram...", end="")
+        # 	count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+        try:
+            ## Get "count threshold" from histogram of smoothed bin counts
+            if params.get('smooth_sd_smoothed_count_hist', None) is None:
+                print("Get count threshold from count histogram...", end="")
+                count_threshold = hist_bins[argrelextrema(count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+            else:
+                print("Get count threshold from smoothed count histogram...", end="")
+                count_threshold = hist_bins[argrelextrema(smoothed_count_hist, np.less)[0] + 1][0] # +1 -> end of bin
+        except IndexError:
+            raise NoHistogramMinException()
+    print(f'Count threshold = {count_threshold}')
 
-	# Active/silent periods
-	active_bin = np.array([count > count_threshold for count in smoothed_bin_counts])
+    # Active/silent periods
+    active_bin = np.array([count > count_threshold for count in smoothed_bin_counts])
 
-	off_durations_pre = utils.state_durations(
-		active_bin, 0, srate=srate,
-	) # (sec)
-	# nbins = int((max(off_durations_pre) - min(off_durations_pre))*N_off_durations_bins)
-	duration_hist_pre, duration_bins_pre = np.histogram(
-		off_durations_pre,
-		bins=np.arange(
-			min(off_durations_pre),
-			max(off_durations_pre) + params['binsize_duration_hist'],
-			params['binsize_duration_hist']
-		) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
-	)
-	duration_bin_centers_pre = (np.array(duration_bins_pre[0:-1]) + np.array(duration_bins_pre[0:-1])) / 2
-	if params.get('gap_threshold', None) is not None:
-		print("Get gap threshold from params...", end="")
-		gap_threshold = params['gap_threshold']
-		assert isinstance(gap_threshold, float)
-	else:
-		# Get "gap threshold" from all off periods durations
-		print("Get gap thresh from off period duration histogram...", end="")
-		local_min_idx = argrelextrema(duration_hist_pre, np.less_equal)[0]
-		if not len(local_min_idx):
-			from warnings import warn
-			warn("No flat local min in off-durations histogram. Set gap threshold to 0.")
-			gap_threshold = 0.0
-		else:
-			gap_threshold = duration_bin_centers_pre[local_min_idx[0]]
-	print(f'Gap threshold = {gap_threshold}(s)')
+    off_durations_pre = utils.state_durations(
+        active_bin, 0, srate=srate,
+    ) # (sec)
+    # nbins = int((max(off_durations_pre) - min(off_durations_pre))*N_off_durations_bins)
+    duration_hist_pre, duration_bins_pre = np.histogram(
+        off_durations_pre,
+        bins=np.arange(
+            min(off_durations_pre),
+            max(off_durations_pre) + params['binsize_duration_hist'],
+            params['binsize_duration_hist']
+        ) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
+    )
+    duration_bin_centers_pre = (np.array(duration_bins_pre[0:-1]) + np.array(duration_bins_pre[0:-1])) / 2
+    if params.get('gap_threshold', None) is not None:
+        print("Get gap threshold from params...", end="")
+        gap_threshold = params['gap_threshold']
+        assert isinstance(gap_threshold, float)
+    else:
+        # Get "gap threshold" from all off periods durations
+        print("Get gap thresh from off period duration histogram...", end="")
+        local_min_idx = argrelextrema(duration_hist_pre, np.less_equal)[0]
+        if not len(local_min_idx):
+            from warnings import warn
+            warn("No flat local min in off-durations histogram. Set gap threshold to 0.")
+            gap_threshold = 0.0
+        else:
+            gap_threshold = duration_bin_centers_pre[local_min_idx[0]]
+    print(f'Gap threshold = {gap_threshold}(s)')
 
-	# Merge active states separated by less than gap_threshold
-	print("Merge closeby on-periods...", end="")
-	off_starts = utils.state_starts(active_bin, 0)
-	off_ends = utils.state_ends(active_bin, 0)
-	N_merged = 0
-	for i, off_dur in enumerate(off_durations_pre):
-		if off_dur <= gap_threshold:
-			active_bin[off_starts[i]:off_ends[i]+1] = 1
-			N_merged += 1
-	print(f'Merged N={N_merged} active periods')
-	
-	# Return df
-	# all in (sec)
-	print("Get final on/off periods df...", end="")
-	on_starts = utils.state_starts(active_bin, 1) / srate
-	off_starts = utils.state_starts(active_bin, 0) / srate
-	on_ends = utils.state_ends(active_bin, 1) / srate
-	off_ends = utils.state_ends(active_bin, 0) / srate
-	on_durations = utils.state_durations(
-		active_bin, 1, srate=srate,
-	)
-	off_durations = utils.state_durations(
-		active_bin, 0, srate=srate,
-	)
-	N_on = len(on_starts)
-	N_off = len(off_starts)
+    # Merge active states separated by less than gap_threshold
+    print("Merge closeby on-periods...", end="")
+    off_starts = utils.state_starts(active_bin, 0)
+    off_ends = utils.state_ends(active_bin, 0)
+    N_merged = 0
+    for i, off_dur in enumerate(off_durations_pre):
+        if off_dur <= gap_threshold:
+            active_bin[off_starts[i]:off_ends[i]+1] = 1
+            N_merged += 1
+    print(f'Merged N={N_merged} active periods')
+    
+    # Return df
+    # all in (sec)
+    print("Get final on/off periods df...", end="")
+    on_starts = utils.state_starts(active_bin, 1) / srate
+    off_starts = utils.state_starts(active_bin, 0) / srate
+    on_ends = utils.state_ends(active_bin, 1) / srate
+    off_ends = utils.state_ends(active_bin, 0) / srate
+    on_durations = utils.state_durations(
+        active_bin, 1, srate=srate,
+    )
+    off_durations = utils.state_durations(
+        active_bin, 0, srate=srate,
+    )
+    N_on = len(on_starts)
+    N_off = len(off_starts)
 
-	on_off_df = pd.DataFrame({
-		'state': ['on' for i in range(N_on)] + ['off' for i in range(N_off)],
-		'start_time': list(on_starts) + list(off_starts),
-		'end_time': list(on_ends) + list(off_ends),
-		'duration': list(on_durations) + list(off_durations),
-		'n_clusters': len(trains_list),
-		'cumFR': len(train)/Tmax,
-		'count_threshold': count_threshold,
-		'gap_threshold': gap_threshold,
-		**params,
-	}).sort_values(by='start_time').reset_index(drop=True)
-	print("Done.")
+    on_off_df = pd.DataFrame({
+        'state': ['on' for i in range(N_on)] + ['off' for i in range(N_off)],
+        'start_time': list(on_starts) + list(off_starts),
+        'end_time': list(on_ends) + list(off_ends),
+        'duration': list(on_durations) + list(off_durations),
+        'n_clusters': len(trains_list),
+        'cumFR': len(train)/Tmax,
+        'count_threshold': count_threshold,
+        'gap_threshold': gap_threshold,
+        **params,
+    }).sort_values(by='start_time').reset_index(drop=True)
+    print("Done.")
 
-	if save or show:
+    if save or show:
 
-		print("Generate summary figure")
+        print("Generate summary figure")
 
-		# Smoothed spike count
-		fig = plt.figure(figsize=(30, 20), constrained_layout=True)
-		spec = gridspec.GridSpec(ncols=4, nrows=7, figure=fig)
-		ax = fig.add_subplot(spec[0,0])
-		width = hist_bins[1] - hist_bins[0]
-		ax.bar(
-			(hist_bins[:-1] + hist_bins[1:]) / 2,
-			count_hist,
-			width=width,
-			align='center',
-			color='black',
-		)
-		if params.get('smooth_sd_smoothed_count_hist', None) is not None:
-			ax.plot(
-				(hist_bins[:-1] + hist_bins[1:]) / 2,
-				smoothed_count_hist,
-				color='red',
-			)
-		ax.set_yscale('log')
-		ax.set_xscale('log')
-		plt.axvline(x=count_threshold, color='red')
-		ax.set_title(f'Spike count histogram ;\n count threshold = {count_threshold}')
+        # Smoothed spike count
+        fig = plt.figure(figsize=(30, 20), constrained_layout=True)
+        spec = gridspec.GridSpec(ncols=4, nrows=7, figure=fig)
+        ax = fig.add_subplot(spec[0,0])
+        width = hist_bins[1] - hist_bins[0]
+        ax.bar(
+            (hist_bins[:-1] + hist_bins[1:]) / 2,
+            count_hist,
+            width=width,
+            align='center',
+            color='black',
+        )
+        if params.get('smooth_sd_smoothed_count_hist', None) is not None:
+            ax.plot(
+                (hist_bins[:-1] + hist_bins[1:]) / 2,
+                smoothed_count_hist,
+                color='red',
+            )
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        plt.axvline(x=count_threshold, color='red')
+        ax.set_title(f'Spike count histogram ;\n count threshold = {count_threshold}')
 
-		# Off period durations before merging
-		ax = fig.add_subplot(spec[0,1])
-		width = duration_bins_pre[1] - duration_bins_pre[0]
-		ax.bar(
-			(duration_bins_pre[:-1] + duration_bins_pre[1:]) / 2,
-			duration_hist_pre,
-			width=width,
-			align='center',
-			color='black'
-		)
-		ax.set_yscale('log')
-		ax.set_xscale('log')
-		ax.set_ylabel('N')
-		ax.set_xlabel('Off period duration (s)')
-		plt.axvline(x=gap_threshold, color='red')
-		ax.set_title(f'Off period duration histogram (pre-merging) ;\n gap threshold = {gap_threshold}')
+        # Off period durations before merging
+        ax = fig.add_subplot(spec[0,1])
+        width = duration_bins_pre[1] - duration_bins_pre[0]
+        ax.bar(
+            (duration_bins_pre[:-1] + duration_bins_pre[1:]) / 2,
+            duration_hist_pre,
+            width=width,
+            align='center',
+            color='black'
+        )
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        ax.set_ylabel('N')
+        ax.set_xlabel('Off period duration (s)')
+        plt.axvline(x=gap_threshold, color='red')
+        ax.set_title(f'Off period duration histogram (pre-merging) ;\n gap threshold = {gap_threshold}')
 
-		# Final Off period durations
-		duration_hist_post, duration_bins_post = np.histogram(
-			off_durations,
-			bins=np.arange(
-				min(off_durations),
-				max(off_durations) + params['binsize_duration_hist'],
-				params['binsize_duration_hist']
-			) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
-		)
-		ax = fig.add_subplot(spec[0,2])
-		width = duration_bins_post[1] - duration_bins_post[0]
-		ax.bar(
-			(duration_bins_post[:-1] + duration_bins_post[1:]) / 2,
-			duration_hist_post,
-			width=width,
-			align='center',
-			color='black'
-		)
-		ax.set_title('Off period duration histogram (final)')
-		ax.set_ylabel('N')
-		ax.set_xlabel('Off period duration (s)')
+        # Final Off period durations
+        duration_hist_post, duration_bins_post = np.histogram(
+            off_durations,
+            bins=np.arange(
+                min(off_durations),
+                max(off_durations) + params['binsize_duration_hist'],
+                params['binsize_duration_hist']
+            ) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
+        )
+        ax = fig.add_subplot(spec[0,2])
+        width = duration_bins_post[1] - duration_bins_post[0]
+        ax.bar(
+            (duration_bins_post[:-1] + duration_bins_post[1:]) / 2,
+            duration_hist_post,
+            width=width,
+            align='center',
+            color='black'
+        )
+        ax.set_title('Off period duration histogram (final)')
+        ax.set_ylabel('N')
+        ax.set_xlabel('Off period duration (s)')
 
-		# Final on period durations
-		on_duration_hist_post, on_duration_bins_post = np.histogram(
-			on_durations,
-			bins=np.arange(
-				min(on_durations),
-				max(on_durations) + params['binsize_duration_hist'],
-				params['binsize_duration_hist']
-			) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
-		)
-		ax = fig.add_subplot(spec[0,3])
-		width = on_duration_bins_post[1] - on_duration_bins_post[0]
-		ax.bar(
-			(on_duration_bins_post[:-1] + on_duration_bins_post[1:]) / 2,
-			on_duration_hist_post,
-			width=width,
-			align='center',
-			color='black'
-		)
-		ax.set_title('On period duration histogram (final)')
-		ax.set_ylabel('N')
-		ax.set_xlabel('On period duration (s)')
+        # Final on period durations
+        on_duration_hist_post, on_duration_bins_post = np.histogram(
+            on_durations,
+            bins=np.arange(
+                min(on_durations),
+                max(on_durations) + params['binsize_duration_hist'],
+                params['binsize_duration_hist']
+            ) + 0.001,  # +epsilon to avoid weird rounding effect in histogram
+        )
+        ax = fig.add_subplot(spec[0,3])
+        width = on_duration_bins_post[1] - on_duration_bins_post[0]
+        ax.bar(
+            (on_duration_bins_post[:-1] + on_duration_bins_post[1:]) / 2,
+            on_duration_hist_post,
+            width=width,
+            align='center',
+            color='black'
+        )
+        ax.set_title('On period duration histogram (final)')
+        ax.set_ylabel('N')
+        ax.set_xlabel('On period duration (s)')
 
-		# Binned count
-		ax = fig.add_subplot(spec[1,:])
-		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
-		ax.set_xlim(0, Tmax)
-		ax2=ax.twinx()
-		ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
-		plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
-		ax.set_title('Binned spike count ; smoothed count')
+        # Binned count
+        ax = fig.add_subplot(spec[1,:])
+        ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
+        ax.set_xlim(0, Tmax)
+        ax2=ax.twinx()
+        ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
+        plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
+        ax.set_title('Binned spike count ; smoothed count')
 
-		# Zoomed bin count 1
-		zoom1 = (ZOOM_START_TIMES[0] * Tmax, ZOOM_START_TIMES[0] * Tmax + ZOOM_DURATION)
-		ax = fig.add_subplot(spec[2,:])
-		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
-		ax.set_xlim(0, Tmax)
-		ax2=ax.twinx()
-		ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
-		plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
-		ax.set_xlim(*zoom1)
-		ax.set_title(f'Binned spike count ; smoothed count (T={zoom1}s)')
+        # Zoomed bin count 1
+        zoom1 = (ZOOM_START_TIMES[0] * Tmax, ZOOM_START_TIMES[0] * Tmax + ZOOM_DURATION)
+        ax = fig.add_subplot(spec[2,:])
+        ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
+        ax.set_xlim(0, Tmax)
+        ax2=ax.twinx()
+        ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
+        plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
+        ax.set_xlim(*zoom1)
+        ax.set_title(f'Binned spike count ; smoothed count (T={zoom1}s)')
 
-		# Zoomed bin count 2
-		zoom2 = (ZOOM_START_TIMES[1] * Tmax, ZOOM_START_TIMES[1] * Tmax + ZOOM_DURATION)
-		ax = fig.add_subplot(spec[3,:])
-		ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
-		ax.set_xlim(0, Tmax)
-		ax2=ax.twinx()
-		ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
-		plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
-		ax.set_xlim(*zoom2)
-		ax.set_title(f'Binned spike count ; smoothed count (T={zoom2}s)')
+        # Zoomed bin count 2
+        zoom2 = (ZOOM_START_TIMES[1] * Tmax, ZOOM_START_TIMES[1] * Tmax + ZOOM_DURATION)
+        ax = fig.add_subplot(spec[3,:])
+        ax.plot(bin_centers, bin_counts, color='blue', linewidth=0.1)
+        ax.set_xlim(0, Tmax)
+        ax2=ax.twinx()
+        ax2.plot(bin_centers, smoothed_bin_counts, color='red', linewidth=0.1)
+        plot_on_off_overlay(on_off_df, ax=ax, alpha=0.2)
+        ax.set_xlim(*zoom2)
+        ax.set_title(f'Binned spike count ; smoothed count (T={zoom2}s)')
 
-		# raster
-		ax = fig.add_subplot(spec[4,:])
-		plot_spike_train(trains_list, ax=ax, linewidth=0.1, Tmax=Tmax)
-		plot_on_off_overlay(on_off_df, ax=ax)
-		ax.set_title('Spike raster')
+        # raster
+        ax = fig.add_subplot(spec[4,:])
+        plot_spike_train(trains_list, ax=ax, linewidth=0.1, Tmax=Tmax)
+        plot_on_off_overlay(on_off_df, ax=ax)
+        ax.set_title('Spike raster')
 
-		# Zoomed raster 1
-		ax = fig.add_subplot(spec[5,:])
-		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
-		plot_on_off_overlay(on_off_df, ax=ax)
-		ax.set_xlim(*zoom1)
-		ax.set_title(f'Spike raster (T={zoom1}s)')
+        # Zoomed raster 1
+        ax = fig.add_subplot(spec[5,:])
+        plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
+        plot_on_off_overlay(on_off_df, ax=ax)
+        ax.set_xlim(*zoom1)
+        ax.set_title(f'Spike raster (T={zoom1}s)')
 
-		# Zoomed raster 2
-		ax = fig.add_subplot(spec[6,:])
-		plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
-		plot_on_off_overlay(on_off_df, ax=ax)
-		ax.set_xlim(*zoom2)
-		ax.set_title(f'Spike raster (T={zoom2}s)')
+        # Zoomed raster 2
+        ax = fig.add_subplot(spec[6,:])
+        plot_spike_train(trains_list, ax=ax, linewidth=1.0, Tmax=Tmax)
+        plot_on_off_overlay(on_off_df, ax=ax)
+        ax.set_xlim(*zoom2)
+        ax.set_title(f'Spike raster (T={zoom2}s)')
 
-		if show:
-			plt.show()
+        if show:
+            plt.show()
 
-		if save:
-			assert output_dir is not None
-			output_dir = Path(output_dir)
-			output_dir.mkdir(parents=True, exist_ok=True)
-			if filename is None:
-				filename = 'on_off_summary_threshold.png'
-			else:
-				filename = filename.strip('.png') + '.png'
-			print(f"Save summary fig at {output_dir/filename}")
-			fig.savefig(output_dir/filename)
-	
-	return on_off_df
+        if save:
+            assert output_dir is not None
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            if filename is None:
+                filename = 'on_off_summary_threshold.png'
+            else:
+                filename = filename.strip('.png') + '.png'
+            print(f"Save summary fig at {output_dir/filename}")
+            fig.savefig(output_dir/filename)
+    
+    return on_off_df
