@@ -4,14 +4,17 @@ import pandas as pd
 from tqdm import tqdm
 
 from .methods.threshold import THRESHOLD_PARAMS, run_threshold
+from .methods.hmmem import HMMEM_PARAMS, run_hmmem 
 from .utils import subset_trains_list
 
 METHODS = {
 	'threshold': run_threshold,
+	'hmmem': run_hmmem,
 }
 
 DF_PARAMS = {
 	'threshold': THRESHOLD_PARAMS,
+	'hmmem': HMMEM_PARAMS,
 }
 
 

@@ -38,6 +38,8 @@ def run_hmmem(
     Tmax,
     params,
     output_dir=None,
+    filename=None, # TODO harmonize
+    save=None, # TODO harmonize
     verbose=False,
 ):
     # Params
