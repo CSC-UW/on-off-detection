@@ -70,7 +70,7 @@ def run_hmmem(
     # bin_spike_count = bin_spike_count[:,10:]
     # bin_history_spike_count = bin_history_spike_count[:, 10:]
 
-    S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P = _run_hmmem(
+    S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged = _run_hmmem(
         bin_spike_count,
         bin_history_spike_count,
         params['init_A'],
@@ -135,6 +135,8 @@ def run_hmmem(
         'mu': mu,
         'A': [A] * N_on_off,
         'log_L': log_L,
+        'end_iter_EM': end_iter_EM,
+        'EM_converged': EM_converged,
         **{
             k: [v] * N_on_off for k, v in params.items()
         },
@@ -324,6 +326,9 @@ def _run_hmmem(
 
         ## End E-M Loop
 
+    end_iter_EM = t - 1 # (Since we just incremented)
+    EM_converged = (t < n_iter_EM) # (idem)
+
     prob_S = gamma # 2 x nbins
     mean_S = STATES[0] * gamma[0:1, :] + STATES[1] * gamma[1:, :]  # Expected mean, 1 x nbins
     p0 = gamma[:,0:1] # 2 x 1
@@ -362,7 +367,7 @@ def _run_hmmem(
     if not set(STATES) == set([0, 1]):
         raise NotImplementedError
 
-    return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P
+    return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged
 
 
 def newton_ralphson(
