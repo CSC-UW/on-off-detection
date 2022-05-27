@@ -19,7 +19,7 @@ DF_PARAMS = {
 
 
 def _run_detection(
-	cluster_id,
+	cluster_ids,
 	detection_func,
 	trains_list,
 	Tmax,
@@ -32,7 +32,7 @@ def _run_detection(
 ):
 	if i is not None:
 		if verbose:
-			print(f'Run #{i+1}/N, cluster_id={cluster_id}')
+			print(f'Run #{i+1}/N, cluster_ids={cluster_ids}')
 
 	if bouts_df is not None:
 		trains_list = subset_trains_list(
@@ -46,10 +46,10 @@ def _run_detection(
 	on_off_df = detection_func(
 		trains_list, Tmax, params,
 		save=True, output_dir=output_dir,
-		filename=f'{debug_plot_filename}_cluster={cluster_id}',
+		filename=f'{debug_plot_filename}_clusters={cluster_ids}',
 		verbose=verbose,
 	)
-	on_off_df['cluster_id'] = cluster_id
+	on_off_df['cluster_ids'] = [cluster_ids] * len(on_off_df)
 
 	if bouts_df is not None:
 		if verbose:
@@ -172,7 +172,7 @@ class OnOffModel(object):
 			if self.verbose:
 				print("Run on-off detection on pooled data")
 			self.on_off_df = _run_detection(
-				'mua',
+				self.cluster_ids,
 				self.detection_func,
 				self.trains_list,
 				self.Tmax,
@@ -192,7 +192,7 @@ class OnOffModel(object):
 				on_off_dfs = []
 				for i, cluster_id in tqdm(enumerate(range(len(self.cluster_ids)))):
 					cluster_on_off_df = _run_detection(
-						cluster_id,
+						[cluster_id],
 						self.detection_func,
 						[self.trains_list[i]],
 						self.Tmax,
