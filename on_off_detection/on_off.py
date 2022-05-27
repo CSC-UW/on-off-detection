@@ -125,6 +125,7 @@ class OnOffModel(object):
 		output_dir=None, debug_plot_filename=None, n_jobs=50,
 		verbose=True
 	):
+
 		self.trains_list = [sorted(train) for train in trains_list]
 		if cluster_ids is not None:
 			assert len(cluster_ids) == len(trains_list)
@@ -132,21 +133,31 @@ class OnOffModel(object):
 		else:
 			self.cluster_ids = ['' for i in range(len(trains_list))]
 		self.pooled_detection = pooled_detection
+		if Tmax is None:
+			Tmax = max(self.train)
 		self.Tmax = Tmax
-		if self.Tmax is None:
-			self.Tmax = max(self.train)
-		self.method=method
-		if self.method not in METHODS.keys():
-			raise ValueError('Unrecognized method.')
-		self.detection_func = METHODS[method]
-		self.params = {k: v for k, v in DF_PARAMS[method].items()}
-		if params is None:
-			params = {}
-		self.params.update(params)
 		if bouts_df is not None:
 			assert all([c in bouts_df for c in ['start_time', 'end_time', 'state', 'duration']])
 		self.bouts_df = bouts_df
 		self.n_jobs = n_jobs
+
+		# Method and params
+		self.method=method
+		if self.method not in METHODS.keys():
+			raise ValueError('Unrecognized method.')
+		self.detection_func = METHODS[method]
+		if params is None:
+			params = {}
+		unrecognized_params = set(params.keys()) - set(DF_PARAMS[method].keys())
+		if len(unrecognized_params):
+			raise ValueError(
+				f"Unrecognized parameter keys for on-off detection method `{method}`: "
+				f"{unrecognized_params}.\n\n"
+				f"Default (recognized) parameters for this method: {DF_PARAMS[method]}"
+			)
+		self.params = {k: v for k, v in DF_PARAMS[method].items()}
+		self.params.update(params)
+
 		# Output stuff
 		self.verbose=verbose
 		if output_dir is None:
