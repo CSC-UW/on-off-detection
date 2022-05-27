@@ -101,14 +101,13 @@ class OnOffModel(object):
 	
 	Args:
 		trains_list (list of array-like): Sorted MUA spike times for each cluster
-		cluster_ids (list of array-like): Cluster ids
-		pooled_detection (bool): Single on-off detection using all clusters,
-			or run a on-off detection for each cluster independently
-		Tmax: End time of recording.
-		params: Dict of parameters. Mandatory params depend of <method>
-		output_dir: Where we save output figures and summary statistics.
+		Tmax (float): End time of recording.
 	
 	Kwargs:
+		cluster_ids (array-like): Cluster ids. Added to output df if provided
+			(default None)
+		method (string): Method used for On-off detection.
+		params (dict): Dict of parameters. Recognized params depend of <method>
 		bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
 			'start_time', 'end_time', 'duration' and 'state' columns. If
 			provided, we consider only spikes within these bouts for on-off
@@ -117,12 +116,15 @@ class OnOffModel(object):
 			period pertains to is saved in the "bout_state", "bout_start_time"
 			and "bout_end_time" columns. ON or OFF periods that are not STRICTLY
 			comprised within bouts are dismissed ()
+		pooled_detection (bool): Single on-off detection using all clusters,
+			or run a on-off detection for each cluster separately
+		output_dir: Where we save output figures and summary statistics.
 	"""
 
 	def __init__(
-		self, trains_list, cluster_ids=None, pooled_detection=True,
-		params=None, Tmax=None, method='hmmem', bouts_df=None,
-		output_dir=None, debug_plot_filename=None, n_jobs=50,
+		self, trains_list, Tmax, cluster_ids=None, method='hmmem', params=None,
+		bouts_df=None, pooled_detection=True,
+		output_dir=None, debug_plot_filename=None, n_jobs=1,
 		verbose=True
 	):
 
@@ -144,7 +146,9 @@ class OnOffModel(object):
 		# Method and params
 		self.method=method
 		if self.method not in METHODS.keys():
-			raise ValueError('Unrecognized method.')
+			raise ValueError(
+				f'Unrecognized method. Available methods are {METHODS.keys()}'
+			)
 		self.detection_func = METHODS[method]
 		if params is None:
 			params = {}
