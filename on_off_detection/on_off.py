@@ -121,7 +121,7 @@ class OnOffModel(object):
 
 	def __init__(
 		self, trains_list, cluster_ids=None, pooled_detection=True,
-		params=None, Tmax=None, method='threshold', bouts_df=None,
+		params=None, Tmax=None, method='hmmem', bouts_df=None,
 		output_dir=None, debug_plot_filename=None, n_jobs=50,
 		verbose=True
 	):
