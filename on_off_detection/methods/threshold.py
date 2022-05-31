@@ -50,7 +50,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelextrema
 
 from .. import utils
-from ..exceptions import NoHistogramMinException
+from .exceptions import NoHistogramMinException
 
 
 THRESHOLD_PARAMS = {

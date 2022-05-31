@@ -18,6 +18,8 @@ import pandas as pd
 from scipy.special import factorial
 
 from .. import utils
+from .exceptions import NumericalErrorException
+
 
 HMMEM_PARAMS = {
     'binsize': 0.010, # (s) (Discrete algorithm)
@@ -239,7 +241,7 @@ def _run_hmmem(
             if C[k] > 0:
                 alpha[:, k] = alpha[:, k] / C[k]
             else:
-                raise ValueError(
+                raise NumericalErrorException(
                     f"Numerical error when scaling alpha[k] "
                     f"(EM step t = {t}, bin index k = {k})"
             )
@@ -275,7 +277,7 @@ def _run_hmmem(
             if np.sum(temp, axis=None) > 0:
                 zeta[:, :, k] = temp / np.sum(temp, axis=None)
             else:
-                raise ValueError(
+                raise NumericalErrorException(
                     f"Numerical error when scaling zeta_i_j[k] "
                     f"(EM step t = {t}, bin index k = {k})"
                 )
