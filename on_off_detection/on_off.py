@@ -1,10 +1,11 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from .methods.hmmem import HMMEM_PARAMS, run_hmmem
 from .methods.threshold import THRESHOLD_PARAMS, run_threshold
-from .methods.hmmem import HMMEM_PARAMS, run_hmmem 
 from .utils import subset_trains_list
 
 METHODS = {
@@ -53,7 +54,7 @@ def _run_detection(
 
 	if bouts_df is not None:
 		if verbose:
-			print("Recover original start/end times from non-cut-and-concat data")
+			print("Recover original start/end times from non-cut-and-concat data...")
 		# Add bout info for computed on_off periods
 		# - 'state' from original bouts_df
 		# - Mark on/off periods that span non-consecutive bouts as 'interbout'
@@ -93,6 +94,9 @@ def _run_detection(
 		
 		on_off_df = on_off_df[on_off_df['bout_state'] != 'interbout'].reset_index(drop=True)
 
+	if verbose:
+		print(f"Found N={len(on_off_df)} on/off periods.")
+
 	return on_off_df
 
 
@@ -119,6 +123,9 @@ class OnOffModel(object):
 		pooled_detection (bool): Single on-off detection using all clusters,
 			or run a on-off detection for each cluster separately
 		output_dir: Where we save output figures and summary statistics.
+		debug_plot_filename: TODO
+		n_jobs (int): Only if pooled_detection is False
+		verbose (bool): (default True)
 	"""
 
 	def __init__(
@@ -131,7 +138,7 @@ class OnOffModel(object):
 		self.trains_list = [sorted(train) for train in trains_list]
 		if cluster_ids is not None:
 			assert len(cluster_ids) == len(trains_list)
-			self.cluster_ids = cluster_ids
+			self.cluster_ids = np.array(cluster_ids)
 		else:
 			self.cluster_ids = ['' for i in range(len(trains_list))]
 		self.pooled_detection = pooled_detection
