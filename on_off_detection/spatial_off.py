@@ -251,7 +251,7 @@ class SpatialOffModel(on_off.OnOffModel):
 		print("Done getting all windows on off periods")
 		self.all_windows_on_off_df = pd.concat([
 			df for df in on_off_dfs if df is not None
-		]).reset_index()
+		]).reset_index(drop=True)
 
 		return self.all_windows_on_off_df
 	
@@ -262,7 +262,11 @@ class SpatialOffModel(on_off.OnOffModel):
 			self.spatial_params
 		)
 
-		return self.off_df
+		return self.off_df.sort_values(
+			by='start_time'
+		).reset_index().rename(
+			columns={'level_0': 'original_idx'}
+		)
 
 	@classmethod
 	def _merge_all_windows_offs(cls, all_windows_on_off_df, spatial_params):
