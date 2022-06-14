@@ -1,5 +1,5 @@
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -209,6 +209,11 @@ class SpatialOffModel(on_off.OnOffModel):
 			pickle.load(self, f)
 
 	def run(self):
+		self.run_all_windows_on_off_df()
+		self.run_off_df()
+		return self.off_df
+
+	def run_all_windows_on_off_df(self):
 		print(f"Run on-off detection for each spatial window (N={len(self.windows_df)})")
 
 		if self.n_jobs == 1:
@@ -246,11 +251,13 @@ class SpatialOffModel(on_off.OnOffModel):
 		print("Done getting all windows on off periods")
 		self.all_windows_on_off_df = pd.concat([
 			df for df in on_off_dfs if df is not None
-		])
-		return self.all_windows_on_off_df.reset_index()
+		]).reset_index()
 
+		return self.all_windows_on_off_df
+	
+	def run_off_df(self):
 		print("Merge off periods across windows.")
-		self.off_df = self.merge_all_windows_offs(
+		self.off_df = self._merge_all_windows_offs(
 			self.all_windows_on_off_df,
 			self.spatial_params
 		)
@@ -258,7 +265,7 @@ class SpatialOffModel(on_off.OnOffModel):
 		return self.off_df
 
 	@classmethod
-	def merge_all_windows_offs(cls, all_windows_on_off_df, spatial_params):
+	def _merge_all_windows_offs(cls, all_windows_on_off_df, spatial_params):
 		"""Merge detected off states within and across spatial grains.
 		
 		The algorithm goes as follows:
