@@ -57,5 +57,6 @@ INSTALL_REQUIRES = [
     "matplotlib",
     "pandas",
     "tqdm",
+    "pickle",
 ]
 PYTHON_REQUIRES = ">= 3.5"

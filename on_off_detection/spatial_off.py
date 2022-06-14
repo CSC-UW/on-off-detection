@@ -1,10 +1,12 @@
-from . import on_off
-import pandas as pd
+from pathlib import Path
+import pickle
+
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
+from . import on_off
 from .methods.exceptions import ALL_METHOD_EXCEPTIONS
-
 
 SPATIAL_PARAMS = {
 	# Windowing/pooling
@@ -196,6 +198,15 @@ class SpatialOffModel(on_off.OnOffModel):
 		"""Return window_cluster_ids for a row of `self.windows_df`."""
 		assert "window_cluster_indices" in window_row
 		return self.cluster_ids[window_row['window_cluster_ids']]
+	
+	def dump(self, filepath):
+		assert not Path(filepath.exists())
+		with open(filepath, 'wb') as f:
+			pickle.dump(self, f)
+
+	def load(self, filepath):
+		with open(filepath, 'rb') as f:
+			pickle.load(self, f)
 
 	def run(self):
 		print(f"Run on-off detection for each spatial window (N={len(self.windows_df)})")
