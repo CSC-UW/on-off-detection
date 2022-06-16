@@ -48,10 +48,15 @@ def _run_detection(
 	)
 	try:
 		window_on_off_df = on_off_model.run()
+		window_on_off_df['raised_exception'] = False
+		window_on_off_df['exception'] = None
 	except ALL_METHOD_EXCEPTIONS as e:
 		print(f"Caught the following exception for window={window_row['window_depths']}")
 		print(e)
-		return None
+		window_on_off_df = pd.DataFrame({
+			'raised_exception': [True],
+			'exception': [None],
+		})
 
 	# Store window information
 	window_on_off_df['window_idx'] = window_i
