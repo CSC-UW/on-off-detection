@@ -205,13 +205,14 @@ class SpatialOffModel(on_off.OnOffModel):
 		return self.cluster_ids[window_row['window_cluster_ids']]
 	
 	def dump(self, filepath):
-		assert not Path(filepath.exists())
+		assert not Path(filepath).exists()
 		with open(filepath, 'wb') as f:
 			pickle.dump(self, f)
 
-	def load(self, filepath):
+	@classmethod
+	def load(cls, filepath):
 		with open(filepath, 'rb') as f:
-			pickle.load(self, f)
+			return pickle.load(f)
 
 	def run(self):
 		self.run_all_windows_on_off_df()
