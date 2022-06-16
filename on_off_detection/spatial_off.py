@@ -16,6 +16,7 @@ SPATIAL_PARAMS = {
 	# Merging of OFF state between and across grain
 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
 	'merge_min_off_overlap': 0.5, # (no unit). To be merged, off states need to overlap by more than `merge_min_off_overlap` times the shortest OFF duration
+	'nearby_off_max_time_diff': 3, # (sec). #TODO
 }
 
 def _run_detection(
@@ -307,13 +308,23 @@ class SpatialOffModel(on_off.OnOffModel):
 		"""
 		assert len(all_windows_on_off_df.index.unique()) == len(all_windows_on_off_df)
 
+		all_windows_on_off_df['off_area'] = all_windows_on_off_df[
+			["window_size", "duration"]
+		].product(axis=1)  # Size x duration
+		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
+		# SORT_BY = ['duration', 'window_size', 'start_time', 'end_time']
+		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
+		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
+		SORT_BY = ['off_area', 'window_size', 'start_time', 'end_time']
+		SORT_BY_ASCENDING = [False, False, True, True]
+
 		# Remove ON periods
 		# Sort by grain, and then by window depth
 		off_df = all_windows_on_off_df[
 			all_windows_on_off_df['state'] == 'off'
 		].copy().sort_values(
-			by=['start_time', 'end_time'],
-			ascending=True
+			by=SORT_BY,
+			ascending=SORT_BY_ASCENDING,
 		)  # Don't reset index here so we keep same indices as all_windows_on_off_df
 
 		# Initialize cols for extended off duration etc
@@ -321,7 +332,7 @@ class SpatialOffModel(on_off.OnOffModel):
 		off_df['end_time_2'] = off_df['end_time']
 		off_df['duration_2'] = off_df['duration']
 		off_df['N_merged_window_offs'] = 1
-		off_df['merged_window_offs_indices'] = off_df.index
+		off_df['merged_window_offs_indices'] = [[idx] for idx in off_df.index]
 
 		# Initialize utility col (split window_depths tuple column)
 		off_df[['depth_min', 'depth_max']] = pd.DataFrame(
@@ -332,7 +343,6 @@ class SpatialOffModel(on_off.OnOffModel):
 		merged_off_rows_list = []  # Concatenate these rows to create final off df
 		initial_off_df = off_df.copy() 
 		initial_off_df['keep'] = True  # Set to False when OFF was merged
-		NEARBY_OFF_MAX_TIME_DIFF = 2  # Search for contiguous/concurrent off states only amongst nearby Offs
 
 		# Iterate on rows that were never merged so far
 		for i, off_row in tqdm(list(initial_off_df.iterrows())):
@@ -340,49 +350,63 @@ class SpatialOffModel(on_off.OnOffModel):
 				continue
 
 			# Subselect only nearby offs for speed
+			nearby_off_max_time_diff = spatial_params['nearby_off_max_time_diff']  # Search for contiguous/concurrent off states only amongst nearby Offs
 			nearby_off_df = initial_off_df.loc[
 				initial_off_df['keep']
-				& initial_off_df['start_time'].between(
-					off_row['start_time'] - NEARBY_OFF_MAX_TIME_DIFF,
-					off_row['start_time'] + NEARBY_OFF_MAX_TIME_DIFF,
-				)
-				& initial_off_df['end_time'].between(
-					off_row['end_time'] - NEARBY_OFF_MAX_TIME_DIFF,
-					off_row['end_time'] + NEARBY_OFF_MAX_TIME_DIFF,
-				)
+				& (initial_off_df['start_time'] >= off_row['start_time'] - nearby_off_max_time_diff)
+				& (initial_off_df['end_time'] <= off_row['end_time'] + nearby_off_max_time_diff)
+				# & initial_off_df['start_time'].between(
+				# 	off_row['start_time'] - nearby_off_max_time_diff,
+				# 	off_row['start_time'] + nearby_off_max_time_diff,
+				# )
+				# & initial_off_df['end_time'].between(
+				# 	off_row['end_time'] - nearby_off_max_time_diff,
+				# 	off_row['end_time'] + nearby_off_max_time_diff,
+				# )
 			].copy()
 
 			# Merge rows until there's no remaining off contiguous and concurrent to
 			# the current merged off
-			off_indices_to_merge = _find_off_indices_to_merge(
+			# We merge rows one by one, otherwise we might have start_time > end_time after merge
+			off_indice_to_merge = _find_off_indice_to_merge(
 				off_row,
 				nearby_off_df,
 				spatial_params,
 			)
 			merged_off_row = off_row.copy()
-			while len(off_indices_to_merge):
+			while len(off_indice_to_merge):
 
 				merged_off_row = _merge_off_rows(
 					merged_off_row,
-					initial_off_df.loc[off_indices_to_merge]
+					initial_off_df.loc[off_indice_to_merge]
 				)
 
-				# Remove/ignore merged indices in the future
-				initial_off_df.loc[off_indices_to_merge, 'keep'] = False
-				nearby_off_df.loc[off_indices_to_merge, 'keep'] = False
+				# Remove/ignore merged indice in the future
+				initial_off_df.loc[off_indice_to_merge, 'keep'] = False
+				nearby_off_df.loc[off_indice_to_merge, 'keep'] = False
 
-				# Remove/ignore OFFs that 
-				# Find new candidates for merging
-				off_indices_to_merge = _find_off_indices_to_merge(
+				# Find new candidate for merging
+				off_indice_to_merge = _find_off_indice_to_merge(
 					merged_off_row,
 					nearby_off_df,
 					spatial_params
 				)
+
+			# At the last step, remove/ignore OFFs that are contiguous but not concurrent
+			off_indices_to_dismiss = _find_off_indices_to_dismiss(
+				merged_off_row,
+				nearby_off_df,
+				spatial_params,
+			)
+			initial_off_df.loc[off_indices_to_dismiss, 'keep'] = False
+
 			# Save merged off and remove/ignore current starting off period in the future
 			merged_off_rows_list.append(merged_off_row)
 			initial_off_df.at[i, 'keep'] = False  # https://stackoverflow.com/questions/23330654/update-a-dataframe-in-pandas-while-iterating-row-by-row
 		
-		return pd.DataFrame(merged_off_rows_list)
+		return pd.DataFrame(merged_off_rows_list).drop(
+			columns=['keep']
+		)
 
 
 def _merge_off_rows(base_off_row, selected_off_df):
@@ -400,8 +424,7 @@ def _merge_off_rows(base_off_row, selected_off_df):
 	new_start_time_2 = min(*start_times, merged_off_row['start_time_2'])
 	new_end_time = min(*end_times, merged_off_row['end_time'])
 	new_end_time_2 = max(*end_times, merged_off_row['end_time_2'])
-	# TODO
-	# assert new_start_time < new_end_time # Modify logic for concurrent off indices otherwise
+	assert new_start_time < new_end_time # Modify logic for merging and detecting concurrent off indices otherwise
 
 	# Update fields
 	# times
@@ -416,8 +439,13 @@ def _merge_off_rows(base_off_row, selected_off_df):
 	merged_off_row['depth_max'] = new_depth_max
 	merged_off_row['window_depths'] = (new_depth_min, new_depth_max)  # TODO Maybe rename?
 	merged_off_row['window_size'] = new_depth_max - new_depth_min  # TODO maybe rename?
+	# Area
+	merged_off_row['off_area'] = merged_off_row['duration'] * merged_off_row['window_size']
+	merged_off_row['off_area_2'] = merged_off_row['duration_2'] * merged_off_row['window_size']
 	#
 	merged_off_row['N_merged_window_offs'] += len(selected_off_df)
+	merged_off_row['merged_window_offs_indices'] += list(selected_off_df.index)
+
 	# TODO: Cluster indices etc
 
 	return merged_off_row
@@ -444,7 +472,7 @@ def _find_contiguous_off_indices(off_row, nearby_off_df, spatial_params):
 	]
 
 
-def _find_concurrent_off_indices(off_row, nearby_off_df, spatial_params):
+def _find_synchronous_off_indices(off_row, nearby_off_df, spatial_params):
 	start_time, end_time = off_row['start_time'], off_row['end_time']
 	start_time_2, end_time_2 = off_row['start_time_2'], off_row['end_time_2']
 	max_time_diff = spatial_params['merge_max_time_diff']
@@ -456,30 +484,51 @@ def _find_concurrent_off_indices(off_row, nearby_off_df, spatial_params):
 				(
 					nearby_off_df['start_time'].between(
 						start_time - max_time_diff,
-						start_time + max_time_diff,
-					)
-				)
-				& (
-					nearby_off_df['end_time'].between(
-						end_time - max_time_diff,
-						end_time + max_time_diff,
-					)
-				)
-			) # Start/end time match with (merged-)off start_time/end_time
-			| (
-				(
-					nearby_off_df['start_time'].between(
-						start_time_2 - max_time_diff,
 						start_time_2 + max_time_diff,
 					)
 				)
 				& (
 					nearby_off_df['end_time'].between(
-						end_time_2 - max_time_diff,
+						end_time - max_time_diff,
 						end_time_2 + max_time_diff,
 					)
 				)
-			) # Start/end time match with (merged-)off start_time_2/end_time_2
+			) # Start/end time match with (merged-)off start_time/end_time
+		)
+		& (
+			~ (
+				(nearby_off_df['start_time'] >= end_time)  # Could be end_time_2 here?
+				| (nearby_off_df['end_time'] <= start_time)  # Could be start_time_2 here?
+			) # OFF states overlap (otherwise two very short nearby non-overlapping OFF states may be merged)
+		)
+	]
+
+def _find_concurrent_off_indices(off_row, nearby_off_df, spatial_params):
+	"""OFFs that start or end within target OFF"""
+	start_time, end_time = off_row['start_time'], off_row['end_time']
+	start_time_2, end_time_2 = off_row['start_time_2'], off_row['end_time_2']
+	max_time_diff = spatial_params['merge_max_time_diff']
+	return nearby_off_df.index[
+		nearby_off_df['keep']
+		& (
+			(
+				(
+					nearby_off_df['start_time'].between(
+						# start_time_2,
+						# end_time_2,
+						start_time_2 - max_time_diff,
+						end_time_2 + max_time_diff,
+					)
+				)
+				& (
+					nearby_off_df['end_time'].between(
+						# start_time_2,
+						# end_time_2,
+						start_time_2 - max_time_diff,
+						end_time_2 + max_time_diff,
+					)
+				)
+			) # Start/end time match with (merged-)off start_time/end_time
 		)
 	]
 
@@ -487,5 +536,44 @@ def _find_concurrent_off_indices(off_row, nearby_off_df, spatial_params):
 def _find_off_indices_to_merge(off_row, nearby_off_df, spatial_params):
 	return np.intersect1d(
 		_find_contiguous_off_indices(off_row, nearby_off_df, spatial_params),
-		_find_concurrent_off_indices(off_row, nearby_off_df, spatial_params)
+		_find_synchronous_off_indices(off_row, nearby_off_df, spatial_params)
+	)
+
+def _get_off_overlap_ratio(row_1, row_2):
+	"""1 for perfect overlap of rectangles, 0 if no overlap."""
+	XA1, XA2 = row_1['start_time'], row_1['end_time']
+	YA1, YA2 = row_1['window_depths']
+	XB1, XB2 = row_2['start_time'], row_2['end_time']
+	YB1, YB2 = row_2['window_depths']
+	area_A = (XA2 - XA1) * (YA2 - YA1)
+	area_B = (XB2 - XB1) * (YB2 - YB1)
+	area_intersect = max(0, min(XA2, XB2) - max(XA1, XB1)) * max(0, min(YA2, YB2) - max(YA1, YB1))
+	area_union = area_A + area_B - area_intersect
+	overlap_ratio = area_intersect / area_union
+	return overlap_ratio
+
+
+def _find_off_indice_to_merge(off_row, nearby_off_df, spatial_params):
+	off_indices_to_merge = _find_off_indices_to_merge(off_row, nearby_off_df, spatial_params)
+	if not len(off_indices_to_merge):
+		return []
+	# Sort all candidate offs by overlap ratio with target off
+	to_merge_df = nearby_off_df.loc[off_indices_to_merge]
+	to_merge_df['overlap'] = to_merge_df.apply(
+		lambda row: _get_off_overlap_ratio(off_row, row), axis=1
+	)
+	return to_merge_df.sort_values(
+		by='overlap',
+		ascending=False
+	).index[0:1]  # Sort by overlap, return index of row with highest overlap
+
+
+def _find_off_indices_to_dismiss(off_row, nearby_off_df, spatial_params):
+	# OFF that are contiguous
+	return np.intersect1d(
+		_find_contiguous_off_indices(off_row, nearby_off_df, spatial_params),
+		np.setdiff1d(
+			_find_concurrent_off_indices(off_row, nearby_off_df, spatial_params),
+			_find_synchronous_off_indices(off_row, nearby_off_df, spatial_params),
+		)
 	)
