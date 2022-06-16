@@ -202,7 +202,9 @@ class SpatialOffModel(on_off.OnOffModel):
 	def get_window_cluster_ids(self, window_row):
 		"""Return window_cluster_ids for a row of `self.windows_df`."""
 		assert "window_cluster_indices" in window_row
-		return self.cluster_ids[window_row['window_cluster_ids']]
+		ids = window_row['window_cluster_ids']
+		assert np.all(ids == self.cluster_ids[window_row['window_cluster_indices']])
+		return ids
 	
 	def dump(self, filepath):
 		assert not Path(filepath).exists()
