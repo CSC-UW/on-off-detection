@@ -494,32 +494,32 @@ def _find_synchronous_off_indices(off_row, nearby_off_df, spatial_params):
 	]
 
 def _find_concurrent_off_indices(off_row, nearby_off_df, spatial_params):
-	"""OFFs that start or end within target OFF"""
+	"""OFFs that overlap with target OFF"""
 	start_time, end_time = off_row['start_time'], off_row['end_time']
 	start_time_2, end_time_2 = off_row['start_time_2'], off_row['end_time_2']
 	max_time_diff = spatial_params['merge_max_time_diff']
 	return nearby_off_df.index[
 		nearby_off_df['keep']
-		& (
-			(
-				(
-					nearby_off_df['start_time'].between(
-						# start_time_2,
-						# end_time_2,
-						start_time_2 - max_time_diff,
-						end_time_2 + max_time_diff,
-					)
-				)
-				& (
-					nearby_off_df['end_time'].between(
-						# start_time_2,
-						# end_time_2,
-						start_time_2 - max_time_diff,
-						end_time_2 + max_time_diff,
-					)
-				)
-			) # Start/end time match with (merged-)off start_time/end_time
-		)
+		& ~ (
+				( nearby_off_df['start_time'] > end_time_2 ) # Could be end_time
+				| ( nearby_off_df['end_time'] < start_time_2 ) # Could be start_time
+		) # OFF overlap with target: Not (strictly after or strictly before)
+		# & (
+		# 	(
+		# 		(
+		# 			nearby_off_df['start_time'].between(
+		# 				start_time_2 - max_time_diff,
+		# 				end_time_2 + max_time_diff,
+		# 			)
+		# 		)
+		# 		& (
+		# 			nearby_off_df['end_time'].between(
+		# 				start_time_2 - max_time_diff,
+		# 				end_time_2 + max_time_diff,
+		# 			)
+		# 		)
+		# 	) # Start/end time match with (merged-)off start_time/end_time
+		# )
 	]
 
 
