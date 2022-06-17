@@ -17,7 +17,7 @@ SPATIAL_PARAMS = {
 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
 	'merge_min_off_overlap': 0.5, # (no unit). To be merged, off states need to overlap by more than `merge_min_off_overlap` times the shortest OFF duration
 	'nearby_off_max_time_diff': 3, # (sec). #TODO
-	'sort_all_window_offs_by': ['window_size', 'duration', 'start_time', 'end_time'],
+	'sort_all_window_offs_by': ['window_size', 'duration', 'start_time', 'end_time'],  # "off_area", "window_size", "duration"
 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 }
 
@@ -127,22 +127,36 @@ class SpatialOffModel(on_off.OnOffModel):
 			debug_plot_filename=None,
 			n_jobs=n_jobs,
 		)
-		# Spatial parameters
-		unrecognized_params = set(spatial_params.keys()) - set(SPATIAL_PARAMS.keys())
-		if len(unrecognized_params):
-			raise ValueError(
-				f"Unrecognized parameter keys for spatial algorithm: "
-				f"{unrecognized_params}.\n\n"
-				f"Default (recognized) parameters for spatial algo: {SPATIAL_PARAMS}"
-			)
-		self.spatial_params = {k: v for k, v in SPATIAL_PARAMS.items()}
-		self.spatial_params.update(spatial_params)
+		#
+		self._spatial_params = None
 		# Spatial pooling info
 		self.cluster_depths = cluster_depths
 		self.windows_df = self.initialize_windows_df()
 		# Output
 		self.all_windows_on_off_df = None  # Pre-merging
 		self.off_df = None  # Final, post-merging
+	
+	@property
+	def spatial_params(self):
+		if self._spatial_params is None:
+			raise ValueError("Spatial params were not assigned")
+		return self._spatial_params
+
+	@spatial_params.setter
+	def spatial_params(self, params):
+		unrecognized_params = set(params.keys()) - set(SPATIAL_PARAMS.keys())
+		if len(unrecognized_params):
+			raise ValueError(
+				f"Unrecognized parameter keys for spatial algorithm: "
+				f"{unrecognized_params}.\n\n"
+				f"Default (recognized) parameters for spatial algo: {SPATIAL_PARAMS}"
+			)
+		missing_params = set(SPATIAL_PARAMS.keys()) - set(params.keys())
+		if len(missing_params):
+			print(f"Setting self.spatial_params: Use default value for params: {missing_params}")
+		self._spatial_params = {k: v for k, v in SPATIAL_PARAMS.items()}
+		self._spatial_params.update(params)
+		print(f"Spatial params: {self._spatial_params}")
 	
 	def initialize_windows_df(self):
 		p = self.spatial_params
