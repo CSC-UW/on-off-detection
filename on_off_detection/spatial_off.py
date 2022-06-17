@@ -455,20 +455,10 @@ def _find_contiguous_off_indices(off_row, nearby_off_df, spatial_params):
 	depth_min, depth_max = off_row['window_depths']
 	return nearby_off_df.index[
 		nearby_off_df['keep']
-		& (
-			(
-				(nearby_off_df['depth_min'] <= depth_min)
-				& (nearby_off_df['depth_max'] >= depth_min)
-			) # Contiguous below
-			| (
-				(nearby_off_df['depth_min'] <= depth_max)
-				& (nearby_off_df['depth_max'] >= depth_max)
-			) # Contiguous above
-			| (
-				(nearby_off_df['depth_min'] >= depth_min)
-				& (nearby_off_df['depth_max'] <= depth_max)
-			) # fully within
-		)
+		& ~ (
+				(nearby_off_df['depth_min'] > depth_max)
+				| (nearby_off_df['depth_max'] < depth_min)
+		) # Not (strictly above or strictly below)
 	]
 
 
