@@ -17,6 +17,8 @@ SPATIAL_PARAMS = {
 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
 	'merge_min_off_overlap': 0.5, # (no unit). To be merged, off states need to overlap by more than `merge_min_off_overlap` times the shortest OFF duration
 	'nearby_off_max_time_diff': 3, # (sec). #TODO
+	'sort_all_window_offs_by': ['window_size', 'duration', 'start_time', 'end_time'],
+	'sort_all_window_offs_by_ascending': [False, False, True, True],
 }
 
 def _run_detection(
@@ -311,20 +313,14 @@ class SpatialOffModel(on_off.OnOffModel):
 		all_windows_on_off_df['off_area'] = all_windows_on_off_df[
 			["window_size", "duration"]
 		].product(axis=1)  # Size x duration
-		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
-		# SORT_BY = ['duration', 'window_size', 'start_time', 'end_time']
-		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
-		# SORT_BY = ['window_size', 'duration', 'start_time', 'end_time']
-		SORT_BY = ['off_area', 'window_size', 'start_time', 'end_time']
-		SORT_BY_ASCENDING = [False, False, True, True]
 
 		# Remove ON periods
 		# Sort by grain, and then by window depth
 		off_df = all_windows_on_off_df[
 			all_windows_on_off_df['state'] == 'off'
 		].copy().sort_values(
-			by=SORT_BY,
-			ascending=SORT_BY_ASCENDING,
+			by=spatial_params['sort_all_window_offs_by'],
+			ascending=spatial_params['sort_all_window_offs_by_ascending'],
 		)  # Don't reset index here so we keep same indices as all_windows_on_off_df
 
 		# Initialize cols for extended off duration etc
