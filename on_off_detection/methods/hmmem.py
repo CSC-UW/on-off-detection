@@ -15,11 +15,11 @@ Differences from original MATLAB code:
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from scipy.special import factorial
 
 from .. import utils
 from .exceptions import NumericalErrorException
-
 
 HMMEM_PARAMS = {
     'binsize': 0.010, # (s) (Discrete algorithm)
@@ -75,13 +75,26 @@ def run_hmmem(
     bin_spike_count_trimmed = bin_spike_count[:, params['history_window_nbins']:]
     bin_history_spike_count_trimmed = bin_history_spike_count[:, params['history_window_nbins']:]
 
+    # Fit init_alphaa, init_mu and init_betaa ?
+    if all([params[p] is None for p in ['init_alphaa', 'init_mu', 'init_betaa']]):
+        fitted_init_params = True
+        init_mu, init_alphaa, init_betaa = fit_init_poisson_params(
+            bin_spike_count_trimmed[0, :],
+            bin_history_spike_count_trimmed[0, :],
+        )
+    else:
+        fitted_init_params = False
+        init_alphaa = params['init_alphaa']
+        init_mu = params['init_mu']
+        init_betaa = params['init_betaa']
+
     S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged = _run_hmmem(
         bin_spike_count_trimmed,
         bin_history_spike_count_trimmed,
         params['init_A'],
-        params['init_alphaa'],
-        params['init_betaa'],
-        params['init_mu'],
+        init_alphaa,
+        init_betaa,
+        init_mu,
         params['n_iter_EM'],
         params['n_iter_newton_ralphson'],
         verbose=verbose
@@ -150,9 +163,18 @@ def run_hmmem(
         **{
             k: [v] * N_on_off for k, v in params.items()
         },
-    }).sort_values(by='start_time').reset_index(drop=True)
+    })
+    if fitted_init_params:
+        # Save fitted params actually used to initialize HMMEM
+        on_off_df['init_mu_fitted'] = init_mu
+        on_off_df['init_alphaa_fitted'] = init_alphaa
+        on_off_df['init_betaa_fitted'] = init_betaa
+    else:
+        on_off_df['init_mu_fitted'] = None
+        on_off_df['init_alphaa_fitted'] = None
+        on_off_df['init_betaa_fitted'] = None
 
-    return on_off_df
+    return on_off_df.sort_values(by='start_time').reset_index(drop=True)
 
 
 # TODO: Nx1-array for betaa (one value per "history window")
@@ -376,6 +398,41 @@ def _run_hmmem(
         raise NotImplementedError
 
     return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged
+
+
+def fit_init_poisson_params(
+    bin_spike_count,
+    bin_history_spike_count,
+):  # 1D arrays
+
+    ## Result
+    endog = pd.DataFrame({"count": bin_spike_count})
+
+    ## Predictors
+    # Compute estimate of state
+    # Ideally, should be done from ground truth
+    # Here we initialize assuming OFF bins are those with almost minimal count
+    state = (bin_spike_count > min(bin_spike_count) + 1).astype(int)
+    exog = sm.add_constant(
+        pd.DataFrame({
+            # "state": np.zeros((nbins,)),
+            "state": state,
+            "history": bin_history_spike_count,
+        })
+    )
+    # count ~ mu + alphaa * state + betaa * bin_history
+    mod = sm.GLM(
+        endog,
+        exog,
+        family=sm.families.Poisson(
+             link=sm.families.links.log()
+        )
+    )
+    res = mod.fit()
+
+    print(res.summary())
+
+    return res.params.values
 
 
 def newton_ralphson(
