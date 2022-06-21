@@ -367,7 +367,7 @@ def _run_hmmem(
 
     # State estimate
     S[0, -1] = np.argmax(delta[:, -1], axis=None)
-    log_L = delta[S[0,-1], -1] / nbins
+    log_L = delta[S[0,-1], -1] / nbins  # TODO: Is this correct? Where is likelihood of each state?
     for t in range(nbins-2, -1, -1):
         S[0, t] = psi[S[0,t+1], t+1]
 
