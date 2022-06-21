@@ -50,6 +50,7 @@ def run_hmmem(
     # Merge and bin all trains
     train = utils.merge_trains_list(trains_list)
     bins = np.arange(0, Tmax + params['binsize'], params['binsize'])
+    nbins = len(bins)
     bin_spike_count, _ = np.histogram(
         train, bins
     )
@@ -63,20 +64,20 @@ def run_hmmem(
     bin_history_spike_count = pd.Series(bin_spike_count).rolling(
         params['history_window_nbins'] + 1, # Sum over window of N bins
         center=False, # Window left of each sample
-        min_periods=1, # Sum over fewer bins at beginning of array
+        min_periods=1, # Sum over fewer bins at beginning of array (Unused if we trim)
     ).sum().to_numpy(dtype=int) - bin_spike_count
 
     # Reshape to 1xnbins vectors (MATLAB consistency of _run_hmmem)
     bin_spike_count = bin_spike_count.reshape((1, -1))
     bin_history_spike_count = bin_history_spike_count.reshape((1, -1))
 
-    # Uncomment to match original matlab code
-    # bin_spike_count = bin_spike_count[:,10:]
-    # bin_history_spike_count = bin_history_spike_count[:, 10:]
+    # Ignore bins without full history
+    bin_spike_count_trimmed = bin_spike_count[:, params['history_window_nbins']:]
+    bin_history_spike_count_trimmed = bin_history_spike_count[:, params['history_window_nbins']:]
 
     S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged = _run_hmmem(
-        bin_spike_count,
-        bin_history_spike_count,
+        bin_spike_count_trimmed,
+        bin_history_spike_count_trimmed,
         params['init_A'],
         params['init_alphaa'],
         params['init_betaa'],
@@ -89,11 +90,14 @@ def run_hmmem(
     # Return identical result from MATLAB original code
     # return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P
 
-    ## Remove short OFF states and return as pd.Dataframe
-
-    active_bin = S[0, :]  # 1d
+    # 1d-Array of active/inactive bins
+    # Broadcast trimmed data to original number of bins
+    active_bin = S[0, 0] * np.ones((nbins,))  # Set same value for ignored bins at the beginning as first detected value
+    active_bin[params['history_window_nbins']+1:] = S[0, :]  # 1d
     assert all([s in [0, 1] for s in active_bin])
     srate = 1 / params['binsize'] # "Sampling rate" of returned binned states (Hz)
+
+    ## Remove short OFF states and return as pd.Dataframe
 
     # Merge active states separated by less than gap_threshold
     if params['gap_threshold'] is not None and params['gap_threshold'] > 0:
