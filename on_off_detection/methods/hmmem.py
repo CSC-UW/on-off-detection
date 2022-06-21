@@ -175,7 +175,7 @@ def _run_hmmem(
     assert bin_spike_count.shape[1] == bin_history_spike_count.shape[1]
     # TODO: bin_history_spike_count could be dimension (k, nbins) rather than (1, nbins)
     #   if so beta would be dimension k
-    if not isinstance(init_betaa, float):
+    if not isinstance(init_betaa, (float, int)):
         raise NotImplementedError()
     if bin_history_spike_count.shape[0] > 1:
         raise NotImplementedError()
