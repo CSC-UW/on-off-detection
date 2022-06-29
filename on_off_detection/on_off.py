@@ -26,8 +26,6 @@ def _run_detection(
 	Tmax,
 	bouts_df,
 	params,
-	output_dir,
-	debug_plot_filename,
 	verbose=True,
 	i=None,
 ):
@@ -46,8 +44,6 @@ def _run_detection(
 
 	on_off_df = detection_func(
 		trains_list, Tmax, params,
-		save=False, output_dir=output_dir,
-		filename=f'{debug_plot_filename}_clusters={cluster_ids}',
 		verbose=verbose,
 	)
 	on_off_df['cluster_ids'] = [cluster_ids] * len(on_off_df)
@@ -122,17 +118,13 @@ class OnOffModel(object):
 			comprised within bouts are dismissed ()
 		pooled_detection (bool): Single on-off detection using all clusters,
 			or run a on-off detection for each cluster separately
-		output_dir: Where we save output figures and summary statistics.
-		debug_plot_filename: TODO
 		n_jobs (int): Only if pooled_detection is False
 		verbose (bool): (default True)
 	"""
 
 	def __init__(
 		self, trains_list, Tmax, cluster_ids=None, method='hmmem', params=None,
-		bouts_df=None, pooled_detection=True,
-		output_dir=None, debug_plot_filename=None, n_jobs=1,
-		verbose=True
+		bouts_df=None, pooled_detection=True, n_jobs=1, verbose=True
 	):
 
 		self.trains_list = [sorted(train) for train in trains_list]
@@ -171,12 +163,7 @@ class OnOffModel(object):
 
 		# Output stuff
 		self.verbose=verbose
-		if output_dir is None:
-			output_dir='.'
-		self.output_dir = Path(output_dir)
-		self.debug_plot_filename=debug_plot_filename
 		self.on_off_df = None
-		self.stats = None
 
 	def run(self):
 		if self.pooled_detection:
@@ -189,8 +176,6 @@ class OnOffModel(object):
 				self.Tmax,
 				self.bouts_df,
 				self.params,
-				self.output_dir/'plots',
-				self.debug_plot_filename,
 				self.verbose,
 				i=None,
 			)
@@ -209,8 +194,6 @@ class OnOffModel(object):
 						self.Tmax,
 						self.bouts_df,
 						self.params,
-						self.output_dir/'plots',
-						self.debug_plot_filename,
 						self.verbose,
 						i=i,
 					)
@@ -225,8 +208,6 @@ class OnOffModel(object):
 						self.Tmax,
 						self.bouts_df,
 						self.params,
-						self.output_dir/'plots',
-						self.debug_plot_filename,
 						self.verbose,
 						i,
 					)

@@ -70,10 +70,6 @@ def run_threshold(
     trains_list,
     Tmax,
     params,
-    output_dir=None,
-    show=True,
-    save=False,
-    filename=None,
     verbose=True,  # TODO
 ):
     """Return dataframe of on/off periods.
@@ -219,7 +215,7 @@ def run_threshold(
     }).sort_values(by='start_time').reset_index(drop=True)
     print("Done.")
 
-    if save or show:
+    if False:
 
         print("Generate summary figure")
 
