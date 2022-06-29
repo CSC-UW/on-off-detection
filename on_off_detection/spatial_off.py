@@ -274,27 +274,36 @@ class SpatialOffModel(on_off.OnOffModel):
 				for _, window_row in self.windows_df.iterrows()
 			)
 
-		self.all_windows_on_off_df = pd.concat([
+		dfs_to_concat = [
 			df for df in on_off_dfs if df is not None
-		]).reset_index(drop=True)
+		]
+		if len(dfs_to_concat):
+			self.all_windows_on_off_df = pd.concat(dfs_to_concat).reset_index(drop=True)
+		else:
+			self.all_windows_on_off_df = pd.DataFrame()
 		print(f"Done getting all windows on off periods.", end=" ")
 		print(f"Found N={len(self.all_windows_on_off_df)} ON and OFF periods across windows.")
 
 		return self.all_windows_on_off_df
 	
 	def run_off_df(self):
-		print("Merge off periods across windows.")
-		off_df = self._merge_all_windows_offs(
-			self.all_windows_on_off_df,
-			self.spatial_params
-		)
-		print(f"Found N={len(off_df)} off periods after merging")
+		if not len(self.all_windows_on_off_df):
+			print("No OFF states to merge")
+			self.off_df = pd.DataFrame()
+		else:
+			print("Merge off periods across windows.")
+			off_df = self._merge_all_windows_offs(
+				self.all_windows_on_off_df,
+				self.spatial_params
+			)
+			print(f"Found N={len(off_df)} off periods after merging")
 
-		self.off_df = off_df.sort_values(
-			by='start_time'
-		).reset_index().rename(
-			columns={'level_0': 'original_idx'}
-		)
+			self.off_df = off_df.sort_values(
+				by='start_time'
+			).reset_index().rename(
+				columns={'level_0': 'original_idx'}
+			)
+
 		return self.off_df
 
 
