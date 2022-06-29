@@ -350,7 +350,7 @@ def _run_hmmem(
 
         # Verbose and increment
         if verbose:
-            print(f"n_iter_EM={t}, log-likelihood={log_P[t]}, mu={mu}, alpha={alphaa}, beta={betaa}")
+            print(f"n_iter_EM={t}, log-likelihood={log_P[t]}, mu={mu}, alpha={alphaa}, beta={betaa}, A={A}")
         if t > 1:
             diff_log_P = log_P[t] - log_P[t-1]
         t += 1
