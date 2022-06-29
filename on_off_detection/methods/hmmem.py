@@ -23,13 +23,13 @@ from .exceptions import NumericalErrorException
 
 HMMEM_PARAMS = {
     'binsize': 0.010, # (s) (Discrete algorithm)
-    'history_window_nbins': 10, # Size of history window IN BINS
-    'n_iter_EM': 100,
+    'history_window_nbins': 3, # Size of history window IN BINS
+    'n_iter_EM': 200,  # Number of iterations for EM
     'n_iter_newton_ralphson': 100,
-    'init_A': np.array([[0.1, 0.9], [0.05, 0.95]]), # Initial transition probability matrix
-    'init_mu': -0.5,
-    'init_alphaa': 1.0,
-    'init_betaa': 0.0,
+    'init_A': np.array([[0.1, 0.9], [0.01, 0.99]]), # Initial transition probability matrix
+    'init_mu': None,  # ~ OFF rate. Fitted to data if None
+    'init_alphaa': None,  # ~ difference between ON and OFF rate. Fitted to data if None
+    'init_betaa': None, # ~ Weight of recent history firing rate. Fitted to data if None,
     'gap_threshold': None, # Merge active states separated by less than gap_threhsold
 }
 
