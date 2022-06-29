@@ -81,6 +81,7 @@ def run_hmmem(
         init_mu, init_alphaa, init_betaa = fit_init_poisson_params(
             bin_spike_count_trimmed[0, :],
             bin_history_spike_count_trimmed[0, :],
+            params['binsize'],
         )
     else:
         fitted_init_params = False
@@ -400,19 +401,42 @@ def _run_hmmem(
     return S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged
 
 
+def get_initial_state_estimate(
+    bin_spike_count,
+    binsize,
+):
+    # CRITICAL: Compute estimate of state to fit glm
+    # Ideally, we'd use a ground truth
+    # Here we initialize assuming OFF bins are those with almost minimal count
+    # for more than 50msec
+    active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(int)
+
+    # Remove short off periods
+    gap_threshold = 0.05 # (sec)
+    srate = 1/binsize
+    off_durations = utils.state_durations(active_bin, 0, srate=srate) # (sec)
+    off_starts = utils.state_starts(active_bin, 0)
+    off_ends = utils.state_ends(active_bin, 0)
+    for i, off_dur in enumerate(off_durations):
+        if off_dur <= gap_threshold:
+            active_bin[off_starts[i]:off_ends[i]+1] = 1
+    return active_bin
+
+
 def fit_init_poisson_params(
     bin_spike_count,
     bin_history_spike_count,
+    binsize,
 ):  # 1D arrays
 
     ## Result
     endog = pd.DataFrame({"count": bin_spike_count})
 
     ## Predictors
-    # Compute estimate of state
-    # Ideally, should be done from ground truth
-    # Here we initialize assuming OFF bins are those with almost minimal count
-    state = (bin_spike_count > min(bin_spike_count) + 1).astype(int)
+    state = get_initial_state_estimate(
+        bin_spike_count,
+        binsize,
+    )
     exog = sm.add_constant(
         pd.DataFrame({
             # "state": np.zeros((nbins,)),
