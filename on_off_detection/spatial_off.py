@@ -28,7 +28,6 @@ def _run_detection(
 	bouts_df,
 	on_off_method,
 	on_off_params,
-	output_dir,
 	verbose=False,
 ):
 	window_i = window_row.name
@@ -43,8 +42,6 @@ def _run_detection(
 		params=on_off_params,
 		bouts_df=bouts_df,
 		pooled_detection=True,
-		output_dir=output_dir,
-		debug_plot_filename=None,
 		n_jobs=1,
 		verbose=verbose,
 	)
@@ -253,7 +250,6 @@ class SpatialOffModel(on_off.OnOffModel):
 					self.bouts_df,
 					self.method,
 					self.params,
-					self.output_dir,
 					self.verbose,
 				)
 				on_off_dfs.append(window_on_off_df)
@@ -268,7 +264,6 @@ class SpatialOffModel(on_off.OnOffModel):
 					self.bouts_df,
 					self.method,
 					self.params,
-					self.output_dir,
 					self.verbose,
 				)
 				for _, window_row in self.windows_df.iterrows()
