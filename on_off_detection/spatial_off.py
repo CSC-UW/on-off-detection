@@ -313,7 +313,7 @@ class SpatialOffModel(on_off.OnOffModel):
 		
 		The algorithm goes as follows:
 		- Remove all ON periods (work only on OFFs)
-		- Sort OFFs by start time
+		- Sort OFFs by ...
 		- For each OFF period in the initial df
 			- Select all OFFs candidate for merging (those whose start/end time are close enough)
 			- Find OFFs to merge to initial off (those that are contiguous & synchronous)
