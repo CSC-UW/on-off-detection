@@ -46,7 +46,7 @@ def _run_detection(
 
 	on_off_df = detection_func(
 		trains_list, Tmax, params,
-		save=True, output_dir=output_dir,
+		save=False, output_dir=output_dir,
 		filename=f'{debug_plot_filename}_clusters={cluster_ids}',
 		verbose=verbose,
 	)
