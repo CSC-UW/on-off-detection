@@ -20,6 +20,11 @@ trains_list = (
     (np.random.randint(0, Tmax, 300) # 300 Spikes for cluster 2
 )
 
+bouts_df = pd.DataFrame({
+    'start_time': [0, 110]
+    'end_time': [100, 300]
+})  # Cut and concatenate spikes within these bouts to do detection
+
 #### Threshold based method #######
 on_off_method = 'threshold'  # Implements: Zhe Chen, Sujith Vijayan, Riccardo Barbieri, Matthew A. Wilson, Emery N. Brown; Discrete- and Continuous-Time Probabilistic Models and Algorithms for Inferring Neuronal UP and DOWN States. Neural Comput 2009; 21 (7): 1797–1862.  doi: https://doi.org/10.1162/neco.2009.06-08-799
 on_off_params = {
@@ -53,6 +58,7 @@ on_off_model = OnOffModel(
     Tmax,
     method=method,
     params=params,
+    bouts_df=bouts_df,
 )
 on_off_df = model.run()
 on_off_df = model.on_off_df # Pandas frame with 'state', 'start_time', 'end_time', 'duration' columns
@@ -77,6 +83,10 @@ trains_list = (
     (np.random.randint(0, Tmax, 300) # 300 Spikes for cluster 3
 )
 
+bouts_df = pd.DataFrame({
+    'start_time': [0, 110]
+    'end_time': [100, 300]
+})  # Cut and concatenate spikes within these bouts to do detection
 
 # Method used for ON-OFF detection within each spatial window
 # (Same as OnOffModel)
@@ -108,10 +118,11 @@ spatial_params = {
 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 }
 
-spatial_off_model = OnOffModel(
+spatial_off_model = SpatialOffModel(
     trains_list,
-    cluster_ids,
+    cluster_depths,
     Tmax,
+    cluster_ids=cluster_ids,
     method=method,
     params=params,
 )

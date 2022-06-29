@@ -15,9 +15,8 @@ SPATIAL_PARAMS = {
 	'window_size_step': 200,  # (um) Increase in size of windows across successive spatial "grains"
 	# Merging of OFF state between and across grain
 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
-	'merge_min_off_overlap': 0.5, # (no unit). To be merged, off states need to overlap by more than `merge_min_off_overlap` times the shortest OFF duration
 	'nearby_off_max_time_diff': 3, # (sec). #TODO
-	'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # "off_area", "window_size", "duration"
+	'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # How to sort all OFFs before iteratively merging
 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 }
 
