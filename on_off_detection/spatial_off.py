@@ -112,7 +112,7 @@ class SpatialOffModel(on_off.OnOffModel):
 	def __init__(
 		self, trains_list, cluster_depths, Tmax, cluster_ids=None,
 		on_off_method='hmmem', on_off_params=None, spatial_params=None,
-		catch_numerical_errors=True, bouts_df=None, n_jobs=10, output_dir=None,
+		bouts_df=None, n_jobs=1, output_dir=None,
 		verbose=True
 	):
 		super().__init__(
@@ -126,6 +126,7 @@ class SpatialOffModel(on_off.OnOffModel):
 			output_dir=output_dir,
 			debug_plot_filename=None,
 			n_jobs=n_jobs,
+			verbose=verbose,
 		)
 		#
 		self._spatial_params = None
