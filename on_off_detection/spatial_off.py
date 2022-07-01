@@ -101,15 +101,13 @@ class SpatialOffModel(on_off.OnOffModel):
 			comprised within bouts are dismissed (default None)
 		n_jobs (int or None): Number of parallel jobs.
 			No parallelization if None or 1
-		output_dir: Where we save output figures and summary statistics.
 		verbose (bool): Default True
 	"""
 
 	def __init__(
 		self, trains_list, cluster_depths, Tmax, cluster_ids=None,
 		on_off_method='hmmem', on_off_params=None, spatial_params=None,
-		bouts_df=None, n_jobs=1, output_dir=None,
-		verbose=True
+		bouts_df=None, n_jobs=1, verbose=True
 	):
 		super().__init__(
 			trains_list,
@@ -119,8 +117,6 @@ class SpatialOffModel(on_off.OnOffModel):
 			params=on_off_params,
 			bouts_df=bouts_df,
 			pooled_detection=True,
-			output_dir=output_dir,
-			debug_plot_filename=None,
 			n_jobs=n_jobs,
 			verbose=verbose,
 		)
@@ -481,7 +477,6 @@ def _find_synchronous_off_indices(off_row, nearby_off_df, spatial_params):
 	start_time, end_time = off_row['start_time'], off_row['end_time']
 	start_time_2, end_time_2 = off_row['start_time_2'], off_row['end_time_2']
 	max_time_diff = spatial_params['merge_max_time_diff']
-	min_overlap = spatial_params['merge_min_off_overlap']  # TODO
 	return nearby_off_df.index[
 		nearby_off_df['keep']
 		& (
