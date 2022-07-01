@@ -385,8 +385,16 @@ def _run_hmmem(
                 np.ones((1,2))
             ) + logA
         )
-        psi[:, t:t+1] = np.argmax(temp, axis=1, keepdims=True)
-        delta[:, t:t+1] = np.max(temp, axis=1, keepdims=True) + logB[:, t:t+1]
+        # psi[:, t:t+1] = np.argmax(temp, axis=1, keepdims=True)
+        psi[:, t:t+1] = np.expand_dims(
+            np.argmax(temp, axis=1),
+            axis=1
+        )  # no keepdims kwarg for numpy <= 1.21
+        # delta[:, t:t+1] = np.max(temp, axis=1, keepdims=True) + logB[:, t:t+1]
+        delta[:, t:t+1] = np.expand_dims(
+            np.max(temp, axis=1),
+            axis=1
+         ) + logB[:, t:t+1] # no keepdims kwarg for numpy <= 1.21
 
     # State estimate
     S[0, -1] = np.argmax(delta[:, -1], axis=None)
