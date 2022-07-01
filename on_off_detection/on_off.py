@@ -135,12 +135,16 @@ class OnOffModel(object):
 			self.cluster_ids = ['' for i in range(len(trains_list))]
 		self.pooled_detection = pooled_detection
 		if Tmax is None or Tmax == float("Inf"):
-			Tmax = np.max(np.array(self.trains_list, dtype=object))
+			Tmax = max([max(train) for train in self.trains_list])
 		self.Tmax = Tmax
+		assert isinstance(self.Tmax, (float, int))
 		if bouts_df is not None:
 			assert all([c in bouts_df for c in ['start_time', 'end_time', 'state', 'duration']])
 		self.bouts_df = bouts_df
+		if n_jobs is None:
+			n_jobs=1
 		self.n_jobs = n_jobs
+		assert isinstance(self.n_jobs, int)
 
 		# Method and params
 		self.method=method
