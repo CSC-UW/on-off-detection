@@ -92,12 +92,12 @@ def run_hmmem(
     S, prob_S, alphaa, betaa, mu, A, B, p0, log_L, log_P, end_iter_EM, EM_converged = _run_hmmem(
         bin_spike_count_trimmed,
         bin_history_spike_count_trimmed,
-        params['init_A'],
+        np.array(params['init_A']),
         init_alphaa,
         init_betaa,
         init_mu,
-        params['n_iter_EM'],
-        params['n_iter_newton_ralphson'],
+        int(params['n_iter_EM']),
+        int(params['n_iter_newton_ralphson']),
         verbose=verbose
     )
 
