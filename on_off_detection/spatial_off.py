@@ -157,7 +157,8 @@ class SpatialOffModel(on_off.OnOffModel):
 		# Window sizes (ie spatial grain)
 		min_depth, max_depth = min(self.cluster_depths), max(self.cluster_depths)
 		max_window_size = max_depth - min_depth
-		unique_window_sizes = np.arange(p['window_size_min'], max_window_size, p['window_size_step']).tolist()
+		min_window_size = min(p['window_size_min'], max_window_size)
+		unique_window_sizes = np.arange(min_window_size, max_window_size, p['window_size_step']).tolist()
 		if max_window_size not in unique_window_sizes:
 			unique_window_sizes.append(max_window_size)
 		# Moving window for each window size, which clusters, which min/max depths
