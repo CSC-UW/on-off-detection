@@ -28,6 +28,7 @@ HMMEM_PARAMS = {
     'n_iter_EM': 200,  # Number of iterations for EM
     'n_iter_newton_ralphson': 100,
     'init_A': np.array([[0.1, 0.9], [0.01, 0.99]]), # Initial transition probability matrix
+    'init_state_estimate_method': 'liberal',  # Method to find inital OFF states to fit GLM model with. Ignored if init_mu/alphaa/betaa are specified. Either of 'conservative'/'liberal'/'intermediate'
     'init_mu': None,  # ~ OFF rate. Fitted to data if None
     'init_alphaa': None,  # ~ difference between ON and OFF rate. Fitted to data if None
     'init_betaa': None, # ~ Weight of recent history firing rate. Fitted to data if None,
@@ -420,33 +421,62 @@ def _run_hmmem(
 def get_initial_state_estimate(
     bin_spike_count,
     binsize,
+    method='liberal',
+    off_min_duration=0.05,
+    on_min_duration=0.01,
 ):
-    # CRITICAL: Compute estimate of state to fit glm
-    # Ideally, we'd use a ground truth
-    # Here we initialize assuming OFF bins are those with almost minimal count
-    # for more than 50msec
-    active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(int)
+    """Compute initial estimate of ON/OFF states.
+
+    Used to fit GLM parameters and initialize HMMEM algorithm.
+    Ideally we'd use a ground truth.
+
+    Here we initialize assuming OFF bins are those with:
+        - minimal count for more than 50msec (`method`=='conservative')
+        - almost minimal count for more than 50msec (`method`=='liberal')
+        - minimal count for more than 50msec, allowing for 10msec of 
+            almost minimal count
+    """
+    if method is None:
+        method='liberal'
+    assert method in ['liberal', 'intermediate', 'conservative']
+
+    if binsize > 0.010:
+        raise NotImplementedError()
+
+    def _flip_short_periods(active_bin, state, min_duration, binsize):
+        assert state in [0, 1]
+        srate = 1/binsize
+        state_durations = utils.state_durations(active_bin, state, srate=srate) # (sec)
+        state_starts = utils.state_starts(active_bin, state)
+        state_ends = utils.state_ends(active_bin, state)
+        for i, dur in enumerate(state_durations):
+            if dur <= min_duration:
+                active_bin[state_starts[i]:state_ends[i]+1] = not state
+        return active_bin
+
+    if method == 'liberal':
+        active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(bool)
+    elif method == 'conservative':
+        active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
+    elif method == 'intermediate':
+        active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
+        # Remove very short ONs
+        active_bin = _flip_short_periods(active_bin, 1, on_min_duration, binsize)
 
     # Remove short off periods
-    gap_threshold = 0.05 # (sec)
-    srate = 1/binsize
-    off_durations = utils.state_durations(active_bin, 0, srate=srate) # (sec)
-    off_starts = utils.state_starts(active_bin, 0)
-    off_ends = utils.state_ends(active_bin, 0)
-    for i, off_dur in enumerate(off_durations):
-        if off_dur <= gap_threshold:
-            active_bin[off_starts[i]:off_ends[i]+1] = 1
+    active_bin = _flip_short_periods(active_bin, 0, off_min_duration, binsize)
 
     if all(active_bin):
         raise NotImplementedError()
 
-    return active_bin
+    return active_bin.astype(int)
 
 
 def fit_init_poisson_params(
     bin_spike_count,
     bin_history_spike_count,
     binsize,
+    init_state_estimate_method='liberal',
 ):  # 1D arrays
 
     ## Result
@@ -456,6 +486,7 @@ def fit_init_poisson_params(
     state = get_initial_state_estimate(
         bin_spike_count,
         binsize,
+        method=init_state_estimate_method,
     )
     exog = sm.add_constant(
         pd.DataFrame({
