@@ -11,6 +11,7 @@ Differences from original MATLAB code:
 - Use all bins with shorter window for history at beginning
 - Use numpy RNG in newton_ralphson (So different output as MATLAB) ( TODO: https://stackoverflow.com/a/36823993 )
 - Max number of iterations is params['n_iter_EM'] rather than n_iter_EM - 1
+- normalize "bin_history_spike_count"
 """
 
 import numpy as np
@@ -66,6 +67,8 @@ def run_hmmem(
         center=False, # Window left of each sample
         min_periods=1, # Sum over fewer bins at beginning of array (Unused if we trim)
     ).sum().to_numpy(dtype=int) - bin_spike_count
+    # Normalize (avoid overflows with large history window)
+    bin_history_spike_count = bin_history_spike_count / params['history_window_nbins'] 
 
     # Reshape to 1xnbins vectors (MATLAB consistency of _run_hmmem)
     bin_spike_count = bin_spike_count.reshape((1, -1))
