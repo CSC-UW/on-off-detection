@@ -310,7 +310,7 @@ class SpatialOffModel(on_off.OnOffModel):
 			- Select all OFFs candidate for merging (those whose start/end time are close enough)
 			- Find OFFs to merge to initial off (those that are contiguous & synchronous)
 			- While there are OFFs to merge:
-				- Merge them
+				- Merge the one with the largest spatiotemporal overlap to the initial OFF
 				- remove them from candidate offs
 				- find OFFs to merge to newly merged OFF
 			- Remove OFFs that are contiguus and concurrent without being synchronous
