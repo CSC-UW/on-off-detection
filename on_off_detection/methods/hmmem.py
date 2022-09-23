@@ -431,6 +431,10 @@ def get_initial_state_estimate(
     for i, off_dur in enumerate(off_durations):
         if off_dur <= gap_threshold:
             active_bin[off_starts[i]:off_ends[i]+1] = 1
+
+    if all(active_bin):
+        raise NotImplementedError()
+
     return active_bin
 
 
