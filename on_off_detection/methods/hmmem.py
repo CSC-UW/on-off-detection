@@ -85,8 +85,13 @@ def run_hmmem(
             bin_spike_count_trimmed[0, :],
             bin_history_spike_count_trimmed[0, :],
             params['binsize'],
+            init_state_estimate_method=params.get('init_state_estimate_method', None)
         )
     else:
+        if any([params[k] is None for k in ['init_alphaa', 'init_mu', 'init_betaa']]):
+            raise ValueError(
+                "'init_alphaa', 'init_mu' and 'init_betaa' params should either be all floats or all None."
+            )
         fitted_init_params = False
         init_alphaa = params['init_alphaa']
         init_mu = params['init_mu']
