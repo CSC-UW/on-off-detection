@@ -45,6 +45,7 @@ on_off_params = {
     'n_iter_EM': 200,  # Number of iterations for EM
     'n_iter_newton_ralphson': 100,
     'init_A': np.array([[0.1, 0.9], [0.01, 0.99]]), # Initial transition probability matrix
+    'init_state_estimate_method': 'liberal',  # Method to find inital OFF states to fit GLM model with. Ignored if init_mu/alphaa/betaa are specified. Either of 'conservative'/'liberal'/'intermediate'
     'init_mu': None,  # ~ OFF rate. Fitted to data if None
     'init_alphaa': None,  # ~ difference between ON and OFF rate. Fitted to data if None
     'init_betaa': None, # ~ Weight of recent history firing rate. Fitted to data if None,
@@ -99,6 +100,7 @@ on_off_params = {
     'n_iter_EM': 200,  # Number of iterations for EM
     'n_iter_newton_ralphson': 100,
     'init_A': np.array([[0.1, 0.9], [0.01, 0.99]]), # Initial transition probability matrix
+    'init_state_estimate_method': 'liberal',  # Method to find inital OFF states to fit GLM model with. Ignored if init_mu/alphaa/betaa are specified. Either of 'conservative'/'liberal'/'intermediate'
     'init_mu': None,  # ~ OFF rate. Fitted to data if None
     'init_alphaa': None,  # ~ difference between ON and OFF rate. Fitted to data if None
     'init_betaa': None, # ~ Weight of recent history firing rate. Fitted to data if None,
