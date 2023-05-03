@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 
-def subset_trains_list(trains_list, bouts_df):
+def subset_trains_list(trains_list, bouts_df, verbose=True):
 	"""Subset spikes within bouts.
 	
 	Return spike times relative to concatenated bouts.
@@ -11,8 +12,13 @@ def subset_trains_list(trains_list, bouts_df):
 	assert "end_time" in bouts_df.columns
 	# TODO Validate that ther's no overlapping bout
 
+	if verbose:
+		iterator = tqdm(trains_list, desc="Subset spikes within bouts")
+	else:
+		iterator = trains_list
+
 	return [
-		subset_train(train, bouts_df) for train in trains_list
+		subset_train(train, bouts_df) for train in iterator
 	]
 
 
