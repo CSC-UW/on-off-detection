@@ -23,6 +23,8 @@ trains_list = (
 bouts_df = pd.DataFrame({
     'start_time': [0, 110]
     'end_time': [100, 300]
+    'duration': [100, 190]
+    'state': ["NREM", "NREM"]
 })  # Cut and concatenate spikes within these bouts to do detection
 
 #### Threshold based method #######
@@ -55,10 +57,10 @@ on_off_params = {
 
 on_off_model = OnOffModel(
     trains_list,
-    cluster_ids,
     Tmax,
-    method=method,
-    params=params,
+    cluster_ids=cluster_ids,
+    method=on_off_method,
+    params=on_off_params,
     bouts_df=bouts_df,
 )
 on_off_df = model.run()
@@ -87,6 +89,8 @@ trains_list = (
 bouts_df = pd.DataFrame({
     'start_time': [0, 110]
     'end_time': [100, 300]
+    'duration': [100, 190]
+    'state': ["NREM", "NREM"]
 })  # Cut and concatenate spikes within these bouts to do detection
 
 # Method used for ON-OFF detection within each spatial window
@@ -125,8 +129,12 @@ spatial_off_model = SpatialOffModel(
     cluster_depths,
     Tmax,
     cluster_ids=cluster_ids,
-    method=method,
-    params=params,
+    on_off_method=on_off_method,
+    on_off_params=on_off_params,
+    spatial_params=spatial_params,
+    bouts_df=None,
+    n_jobs=1,
+    verbose=True
 )
 off_df = model.run()
 
