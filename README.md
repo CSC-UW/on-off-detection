@@ -113,14 +113,14 @@ on_off_params = {
 
 # Parameters for aggregation of OFF states across windows
 spatial_params = {
-	# Definition of windows
-	'window_size_min': 1,  # (um) Smallest spatial "grain" for pooling
+	# Windowing/pooling
+	'window_size_min': 200,  # (um) Smallest spatial "grain" for pooling
 	'window_overlap': 0.5,  # (no unit) Overlap between windows within each spatial grain 
-	'window_size_step': 1,  # (um) Increase in size of windows across successive spatial "grains"
+	'window_size_step': 200,  # (um) Increase in size of windows across successive spatial "grains"
 	# Merging of OFF state between and across grain
 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
-	'nearby_off_max_time_diff': 3, # (sec)
-	'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # # How to sort all OFFs before iteratively merging
+	'nearby_off_max_time_diff': 3, # (sec). #TODO
+	'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # How to sort all OFFs before iteratively merging
 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 }
 
