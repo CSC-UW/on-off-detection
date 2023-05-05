@@ -38,7 +38,7 @@ HMMEM_PARAMS = {
 
 # TODO: Nx1-array for betaa (one value per "history window")
 def run_hmmem(
-    trains_list,
+    train,
     Tmax,
     params,
     output_dir=None,
@@ -50,7 +50,6 @@ def run_hmmem(
     assert set(params.keys()) == set(HMMEM_PARAMS.keys())
 
     # Merge and bin all trains
-    train = utils.merge_trains_list(trains_list)
     bins = np.arange(0, Tmax + params['binsize'], params['binsize'])
     nbins = len(bins)
     bin_spike_count, _ = np.histogram(
@@ -161,7 +160,6 @@ def run_hmmem(
         'start_time': list(on_starts) + list(off_starts),
         'end_time': list(on_ends) + list(off_ends),
         'duration': list(on_durations) + list(off_durations),
-        'n_clusters': len(trains_list),
         'cumFR': len(train)/Tmax,
         'alphaa': alphaa,
         'betaa': [betaa] * N_on_off,

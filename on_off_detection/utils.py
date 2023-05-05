@@ -3,38 +3,20 @@ import numpy as np
 from tqdm import tqdm
 
 
-def subset_trains_list(trains_list, bouts_df, verbose=True):
-	"""Subset spikes within bouts.
-	
-	Return spike times relative to concatenated bouts.
-	"""
-	assert "start_time" in bouts_df.columns
-	assert "end_time" in bouts_df.columns
-	# TODO Validate that ther's no overlapping bout
-
-	if verbose:
-		iterator = tqdm(trains_list, desc="Subset spikes within bouts")
-	else:
-		iterator = trains_list
-
-	return [
-		subset_train(train, bouts_df) for train in iterator
-	]
-
-
-def subset_train(train, bouts_df):
-	res = []
+def subset_sorted_train(train, bouts_df):
+	train = np.array(train)
 	current_concatenated_start = 0
-	for _, row in bouts_df.iterrows():
+	res = []
+	for row in bouts_df.itertuples():
 		start, end = row.start_time, row.end_time
 		duration = end - start
-		res += [
-			s - start + current_concatenated_start
-			for s in train
-			if s >= start and s <= end
-		]
+		start_i = np.searchsorted(train, start, side="left")
+		end_i = np.searchsorted(train, end, side="right")
+		res.append(
+			train[start_i:end_i] - start + current_concatenated_start
+		)
 		current_concatenated_start += duration
-	return res
+	return np.hstack(res)
 
 
 def merge_trains_list(trains_list):

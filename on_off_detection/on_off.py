@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from .methods.hmmem import HMMEM_PARAMS, run_hmmem
 from .methods.threshold import THRESHOLD_PARAMS, run_threshold
-from .utils import subset_trains_list
+from .utils import subset_sorted_train, merge_trains_list
 
 METHODS = {
     "threshold": run_threshold,
@@ -33,16 +33,20 @@ def _run_detection(
         if verbose:
             print(f"Run #{i+1}/N, cluster_ids={cluster_ids}")
 
+    if verbose:
+        print(f"Merge N={len(trains_list)} spike trains")
+    merged_train = merge_trains_list(trains_list)
+
     if bouts_df is not None:
-        trains_list = subset_trains_list(
-            trains_list, bouts_df
-        )  # Times in cut-and-concatenated bouts
         Tmax = bouts_df.duration.sum()
         if verbose:
             print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
+        merged_train = subset_sorted_train(
+            merged_train, bouts_df
+        )  # Times in cut-and-concatenated bouts
 
     on_off_df = detection_func(
-        trains_list,
+        merged_train,
         Tmax,
         params,
         verbose=verbose,

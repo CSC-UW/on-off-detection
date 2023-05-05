@@ -63,7 +63,7 @@ ZOOM_START_TIMES = (0.1, 0.8) # Ratio of Tmax
 ZOOM_DURATION = 60
 
 def run_threshold(
-    trains_list,
+    train,
     Tmax,
     params,
     verbose=True,  # TODO
@@ -79,8 +79,6 @@ def run_threshold(
     print(f"method=threshold, params: {params}")
     srate = int(1/params['binsize'])
 
-    train = utils.merge_trains_list(trains_list)
-    print(f"Merged N={len(trains_list)} spike trains for on/off detection")
     print(f"Merged pop. rate = {len(train)/Tmax}Hz, N={len(train)} spikes")
 
     bin_counts, bins = np.histogram(
@@ -203,7 +201,6 @@ def run_threshold(
         'start_time': list(on_starts) + list(off_starts),
         'end_time': list(on_ends) + list(off_ends),
         'duration': list(on_durations) + list(off_durations),
-        'n_clusters': len(trains_list),
         'cumFR': len(train)/Tmax,
         'count_threshold': count_threshold,
         'gap_threshold': gap_threshold,
