@@ -124,7 +124,7 @@ class SpatialOffModel(on_off.OnOffModel):
 		self._spatial_params = None
 		self.spatial_params = spatial_params
 		# Spatial pooling info
-		self.cluster_depths = cluster_depths
+		self.cluster_depths = np.array(cluster_depths)
 		self.windows_df = self.initialize_windows_df()
 		# Output
 		self.all_windows_on_off_df = None  # Pre-merging

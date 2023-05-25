@@ -158,7 +158,7 @@ class OnOffModel(object):
             assert len(cluster_ids) == len(trains_list)
             self.cluster_ids = np.array(cluster_ids)
         else:
-            self.cluster_ids = ["" for i in range(len(trains_list))]
+            self.cluster_ids = np.array(["" for i in range(len(trains_list))])
         self.pooled_detection = pooled_detection
         if Tmax is None or Tmax == float("Inf"):
             Tmax = max([max(train) for train in self.trains_list])
