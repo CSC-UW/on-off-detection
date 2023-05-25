@@ -51,7 +51,7 @@ def _run_detection(
         params,
         verbose=verbose,
     )
-    on_off_df["cluster_ids"] = [cluster_ids] * len(on_off_df)
+    # on_off_df["cluster_ids"] = [cluster_ids] * len(on_off_df)
 
     if bouts_df is not None:
         if verbose:
@@ -70,12 +70,12 @@ def _run_detection(
                 on_off_orig["end_time"] < bout_concat_end_time
             )  # Strict comparison also excludes first and last bout
             # start and end time in cut-concatenated data
-            on_off_df.loc[
-                bout_on_off, "start_time_relative_to_concatenated_bouts"
-            ] = on_off_df.loc[bout_on_off, "start_time"]
-            on_off_df.loc[
-                bout_on_off, "end_time_relative_to_concatenated_bouts"
-            ] = on_off_df.loc[bout_on_off, "end_time"]
+            # on_off_df.loc[
+            #     bout_on_off, "start_time_relative_to_concatenated_bouts"
+            # ] = on_off_df.loc[bout_on_off, "start_time"]
+            # on_off_df.loc[
+            #     bout_on_off, "end_time_relative_to_concatenated_bouts"
+            # ] = on_off_df.loc[bout_on_off, "end_time"]
             # Start and end time in original recording
             bout_offset = (
                 -bout_concat_start_time + row["start_time"]
@@ -90,19 +90,19 @@ def _run_detection(
             # bout information
             bout_state = row["state"]
             on_off_df.loc[bout_on_off, "bout_state"] = bout_state
-            on_off_df.loc[bout_on_off, "bout_idx"] = row.name
-            on_off_df.loc[bout_on_off, "bout_concat_start_time"] = row["start_time"]
-            on_off_df.loc[bout_on_off, "bout_end_time"] = row["end_time"]
-            on_off_df.loc[bout_on_off, "bout_duration"] = row["duration"]
+            # on_off_df.loc[bout_on_off, "bout_idx"] = row.name
+            # on_off_df.loc[bout_on_off, "bout_concat_start_time"] = row["start_time"]
+            # on_off_df.loc[bout_on_off, "bout_end_time"] = row["end_time"]
+            # on_off_df.loc[bout_on_off, "bout_duration"] = row["duration"]
             # Go to next bout
             bout_concat_start_time = bout_concat_end_time
 
         # Total state time per condition
-        for bout_state in bouts_df["state"].unique():
-            total_state_time = bouts_df[bouts_df["state"] == bout_state].duration.sum()
-            on_off_df.loc[
-                on_off_df["bout_state"] == bout_state, "bout_state_total_time"
-            ] = total_state_time
+        # for bout_state in 
+        #     total_state_time = bouts_df[bouts_df["state"] == bout_state].duration.sum()
+        #     on_off_df.loc[
+        #         on_off_df["bout_state"] == bout_state, "bout_state_total_time"
+        #     ] = total_state_time
 
         on_off_df = on_off_df[on_off_df["bout_state"] != "interbout"].reset_index(
             drop=True

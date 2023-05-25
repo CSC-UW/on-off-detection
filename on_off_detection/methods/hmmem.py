@@ -168,19 +168,19 @@ def run_hmmem(
         'log_L': log_L,
         'end_iter_EM': end_iter_EM,
         'EM_converged': EM_converged,
-        **{
-            k: [v] * N_on_off for k, v in params.items()
-        },
+        # **{
+        #     k: [v] * N_on_off for k, v in params.items()
+        # },
     })
-    if fitted_init_params:
-        # Save fitted params actually used to initialize HMMEM
-        on_off_df['init_mu_fitted'] = init_mu
-        on_off_df['init_alphaa_fitted'] = init_alphaa
-        on_off_df['init_betaa_fitted'] = init_betaa
-    else:
-        on_off_df['init_mu_fitted'] = None
-        on_off_df['init_alphaa_fitted'] = None
-        on_off_df['init_betaa_fitted'] = None
+    # if fitted_init_params:
+    #     # Save fitted params actually used to initialize HMMEM
+    #     on_off_df['init_mu_fitted'] = init_mu
+    #     on_off_df['init_alphaa_fitted'] = init_alphaa
+    #     on_off_df['init_betaa_fitted'] = init_betaa
+    # else:
+    #     on_off_df['init_mu_fitted'] = None
+    #     on_off_df['init_alphaa_fitted'] = None
+    #     on_off_df['init_betaa_fitted'] = None
 
     return on_off_df.sort_values(by='start_time').reset_index(drop=True)
 
