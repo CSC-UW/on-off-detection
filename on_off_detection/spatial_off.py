@@ -10,6 +10,7 @@ from .methods.exceptions import ALL_METHOD_EXCEPTIONS
 
 SPATIAL_PARAMS = {
 	# Windowing/pooling
+	'window_min_fr': 10, # (Hz) minimal population FR within a window to run it.
 	'window_size_min': 200,  # (um) Smallest spatial "grain" for pooling
 	'window_overlap': 0.5,  # (no unit) Overlap between windows within each spatial grain 
 	'window_size_step': 200,  # (um) Increase in size of windows across successive spatial "grains"
@@ -84,6 +85,8 @@ class SpatialOffModel(on_off.OnOffModel):
 	Kwargs:
 		cluster_ids (list of array-like): Cluster ids. Added to output df if
 			provided. (default None)
+		cluster_firing_rates (list of array-like): Firing rates for each cluster. Used to exclude
+			window based on threshold (default None)
 		on_off_method: Name of method used for On/Off detection within each
 			spatial window (default hmmem)
 		on_off_params: Dict of parameters passed to the on/off detection
@@ -106,7 +109,7 @@ class SpatialOffModel(on_off.OnOffModel):
 
 	def __init__(
 		self, trains_list, cluster_depths, Tmax, cluster_ids=None,
-		on_off_method='hmmem', on_off_params=None, spatial_params=None,
+		cluster_firing_rates=None, on_off_method='hmmem', on_off_params=None, spatial_params=None,
 		bouts_df=None, n_jobs=1, verbose=True
 	):
 		super().__init__(
@@ -129,7 +132,14 @@ class SpatialOffModel(on_off.OnOffModel):
 		# Output
 		self.all_windows_on_off_df = None  # Pre-merging
 		self.off_df = None  # Final, post-merging
-	
+
+		if self.spatial_params['window_min_fr'] is not None:
+			if self.cluster_firing_rates is not None:
+				assert len(cluster_firing_rates) == len(cluster_ids)
+				self.cluster_firing_rates = np.array(cluster_firing_rates)
+			else:
+				raise ValueError("cluster_firing_rates not provided with window_min_fr")
+		
 	@property
 	def spatial_params(self):
 		if self._spatial_params is None:
@@ -184,19 +194,28 @@ class SpatialOffModel(on_off.OnOffModel):
 				np.where(np.logical_and(start <= self.cluster_depths, self.cluster_depths <= end))[0]
 				for start, end in depth_intervals
 			]
-			cluster_ids = [
-				self.cluster_ids[indices]
+			cluster_firing_rates = [
+				self.cluster_firing_rates[indices]
 				for indices in cluster_indices
 			]
-			cluster_depths = [
-				self.cluster_depths[indices]
-				for indices in cluster_indices
-			]
-			all_window_sizes += [window_size for _ in range(len(depth_intervals))]
-			all_window_depths += depth_intervals
-			all_window_cluster_indices += cluster_indices
-			all_window_cluster_ids += cluster_ids
-			all_window_cluster_depths += cluster_depths
+			#Exclude windows that do not meet min fr
+			#Correct to sum?
+			if np.sum(cluster_firing_rates) < p["window_min_fr"]:
+				pass
+			else:
+				cluster_ids = [
+					self.cluster_ids[indices]
+					for indices in cluster_indices
+				]
+				cluster_depths = [
+					self.cluster_depths[indices]
+					for indices in cluster_indices
+				]
+				all_window_sizes += [window_size for _ in range(len(depth_intervals))]
+				all_window_depths += depth_intervals
+				all_window_cluster_indices += cluster_indices
+				all_window_cluster_ids += cluster_ids
+				all_window_cluster_depths += cluster_depths
 		return pd.DataFrame({
 			'window_size': all_window_sizes,
 			'window_depths': all_window_depths,
