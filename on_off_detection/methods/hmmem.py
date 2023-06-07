@@ -465,6 +465,10 @@ def get_initial_state_estimate(
     active_bin = _flip_short_periods(active_bin, 0, off_min_duration, binsize)
 
     if all(active_bin):
+        # Found only ONs
+        raise FailedInitializationException()
+    elif not any(active_bin):
+        # Found only OFFs
         raise FailedInitializationException()
 
     return active_bin.astype(int)

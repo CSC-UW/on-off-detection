@@ -13,7 +13,7 @@ class NumericalErrorException(Exception):
 
 #All active or inactive init classification:
 class FailedInitializationException(Exception):
-	def __init__(self, message='All periods were on. Cannot train GLM.'):
+	def __init__(self, message='Find only ONs or only OFFs during initialization. Cannot train GLM.'):
 		super().__init__(message)
 
 ALL_METHOD_EXCEPTIONS = (
