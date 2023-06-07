@@ -44,6 +44,10 @@ def _run_detection(
         merged_train = subset_sorted_train(
             merged_train, bouts_df
         )  # Times in cut-and-concatenated bouts
+        if not len(merged_train):
+            raise ValueError(
+                "Attempting to perform on/off detection on an empty spike train"
+            )
 
     on_off_df = detection_func(
         merged_train,
