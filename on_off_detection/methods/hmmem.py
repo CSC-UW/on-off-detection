@@ -20,7 +20,7 @@ import statsmodels.api as sm
 from scipy.special import factorial
 
 from .. import utils
-from .exceptions import NumericalErrorException
+from .exceptions import NumericalErrorException, FailedInitializationException
 
 HMMEM_PARAMS = {
     'binsize': 0.010, # (s) (Discrete algorithm)
@@ -465,7 +465,7 @@ def get_initial_state_estimate(
     active_bin = _flip_short_periods(active_bin, 0, off_min_duration, binsize)
 
     if all(active_bin):
-        raise NotImplementedError()
+        raise FailedInitializationException()
 
     return active_bin.astype(int)
 
