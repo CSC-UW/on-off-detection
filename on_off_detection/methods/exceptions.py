@@ -10,6 +10,11 @@ class NoHistogramMinException(Exception):
 class NumericalErrorException(Exception):
 	def __init__(self, message=None):
 		super().__init__(message)
+		
+#All active or inactive init classification:
+class FailedInitializationException(Exception):
+	def __inti__(self, message='All periods were on. Cannot train GLM.'):
+		super().__init__(message)
 
 #All active or inactive init classification:
 class FailedInitializationException(Exception):
