@@ -341,18 +341,20 @@ class SpatialOffModel(on_off.OnOffModel):
 		"""
 		assert len(all_windows_on_off_df.index.unique()) == len(all_windows_on_off_df)
 
-		all_windows_on_off_df['off_area'] = all_windows_on_off_df[
+		all_windows_off_df = all_windows_on_off_df[all_windows_on_off_df["state"] == "off"].copy()
+		if not len(all_windows_on_off_df):
+			return pd.DataFrame()
+
+		all_windows_off_df['off_area'] = all_windows_off_df[
 			["window_size", "duration"]
 		].product(axis=1)  # Size x duration
 
 		# Remove ON periods
 		# Sort by grain, and then by window depth
-		off_df = all_windows_on_off_df[
-			all_windows_on_off_df['state'] == 'off'
-		].copy().sort_values(
+		off_df = all_windows_off_df.sort_values(
 			by=spatial_params['sort_all_window_offs_by'],
 			ascending=spatial_params['sort_all_window_offs_by_ascending'],
-		)  # Don't reset index here so we keep same indices as all_windows_on_off_df
+		)  # Don't reset index here so we keep same indices as all_windows_off_df
 
 		# Initialize cols for extended off duration etc
 		off_df['start_time_2'] = off_df['start_time']
