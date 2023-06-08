@@ -102,7 +102,7 @@ def _run_detection(
             bout_concat_start_time = bout_concat_end_time
 
         # Total state time per condition
-        # for bout_state in 
+        # for bout_state in
         #     total_state_time = bouts_df[bouts_df["state"] == bout_state].duration.sum()
         #     on_off_df.loc[
         #         on_off_df["bout_state"] == bout_state, "bout_state_total_time"
