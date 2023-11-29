@@ -63,6 +63,7 @@ def _run_detection(
             {
                 "raised_exception": [True],
                 "exception": [None],
+                "state": [None],
             }
         )
 
@@ -323,7 +324,8 @@ class SpatialOffModel(on_off.OnOffModel):
         return self.all_windows_on_off_df
 
     def run_off_df(self):
-        if not len(self.all_windows_on_off_df):
+        all_windows_on_off_df = self.all_windows_on_off_df
+        if not len(all_windows_on_off_df[all_windows_on_off_df["state"] == "off"]):
             print("No OFF states to merge")
             self.off_df = pd.DataFrame()
         else:
