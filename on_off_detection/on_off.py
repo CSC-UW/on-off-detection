@@ -23,7 +23,6 @@ def _run_detection(
     cluster_ids,
     detection_func,
     trains_list,
-    Tmax,
     bouts_df,
     params,
     verbose=True,
@@ -37,17 +36,16 @@ def _run_detection(
         print(f"Merge N={len(trains_list)} spike trains")
     merged_train = merge_trains_list(trains_list)
 
-    if bouts_df is not None:
-        Tmax = bouts_df.duration.sum()
-        if verbose:
-            print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
-        merged_train = subset_sorted_train(
-            merged_train, bouts_df
-        )  # Times in cut-and-concatenated bouts
-        if not len(merged_train):
-            raise ValueError(
-                "Attempting to perform on/off detection on an empty spike train"
-            )
+    Tmax = bouts_df.duration.sum()
+    if verbose:
+        print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
+    merged_train = subset_sorted_train(
+        merged_train, bouts_df
+    )  # Times in cut-and-concatenated bouts
+    if not len(merged_train):
+        raise ValueError(
+            "Attempting to perform on/off detection on an empty spike train"
+        )
 
     on_off_df = detection_func(
         merged_train,
@@ -57,49 +55,48 @@ def _run_detection(
     )
     # on_off_df["cluster_ids"] = [cluster_ids] * len(on_off_df)
 
-    if bouts_df is not None:
-        if verbose:
-            print("Recover original start/end times from non-cut-and-concat data...")
-        # Add bout info for computed on_off periods
-        # - 'state' from original bouts_df
-        # - Mark on/off periods that span non-consecutive bouts as 'interbout'
-        # - Mark first and last bout as 'interbout'
-        # - recover start/end time in original (not cut/concatenated) time (Kinda nasty)
-        on_off_orig = on_off_df.copy()
-        on_off_df["bout_state"] = "interbout"
-        bout_concat_start_time = 0  # Start time in cut and concatenated data
-        for i, row in bouts_df.iterrows():
-            bout_concat_end_time = bout_concat_start_time + row["duration"]
-            bout_on_off = (on_off_orig["start_time"] > bout_concat_start_time) & (
-                on_off_orig["end_time"] < bout_concat_end_time
-            )  # Strict comparison also excludes first and last bout
-            # start and end time in cut-concatenated data
-            # on_off_df.loc[
-            #     bout_on_off, "start_time_relative_to_concatenated_bouts"
-            # ] = on_off_df.loc[bout_on_off, "start_time"]
-            # on_off_df.loc[
-            #     bout_on_off, "end_time_relative_to_concatenated_bouts"
-            # ] = on_off_df.loc[bout_on_off, "end_time"]
-            # Start and end time in original recording
-            bout_offset = (
-                -bout_concat_start_time + row["start_time"]
-            )  # Offset from concat to real time for this bout
-            # print('offset', bout_offset)
-            on_off_df.loc[bout_on_off, "start_time"] = (
-                on_off_df.loc[bout_on_off, "start_time"] + bout_offset
-            )
-            on_off_df.loc[bout_on_off, "end_time"] = (
-                on_off_df.loc[bout_on_off, "end_time"] + bout_offset
-            )
-            # bout information
-            bout_state = row["state"]
-            on_off_df.loc[bout_on_off, "bout_state"] = bout_state
-            # on_off_df.loc[bout_on_off, "bout_idx"] = row.name
-            # on_off_df.loc[bout_on_off, "bout_concat_start_time"] = row["start_time"]
-            # on_off_df.loc[bout_on_off, "bout_end_time"] = row["end_time"]
-            # on_off_df.loc[bout_on_off, "bout_duration"] = row["duration"]
-            # Go to next bout
-            bout_concat_start_time = bout_concat_end_time
+    if verbose:
+        print("Recover original start/end times from non-cut-and-concat data...")
+    # Add bout info for computed on_off periods
+    # - 'state' from original bouts_df
+    # - Mark on/off periods that span non-consecutive bouts as 'interbout'
+    # - Mark first and last bout as 'interbout'
+    # - recover start/end time in original (not cut/concatenated) time (Kinda nasty)
+    on_off_orig = on_off_df.copy()
+    on_off_df["bout_state"] = "interbout"
+    bout_concat_start_time = 0  # Start time in cut and concatenated data
+    for i, row in bouts_df.iterrows():
+        bout_concat_end_time = bout_concat_start_time + row["duration"]
+        bout_on_off = (on_off_orig["start_time"] > bout_concat_start_time) & (
+            on_off_orig["end_time"] < bout_concat_end_time
+        )  # Strict comparison also excludes first and last bout
+        # start and end time in cut-concatenated data
+        # on_off_df.loc[
+        #     bout_on_off, "start_time_relative_to_concatenated_bouts"
+        # ] = on_off_df.loc[bout_on_off, "start_time"]
+        # on_off_df.loc[
+        #     bout_on_off, "end_time_relative_to_concatenated_bouts"
+        # ] = on_off_df.loc[bout_on_off, "end_time"]
+        # Start and end time in original recording
+        bout_offset = (
+            -bout_concat_start_time + row["start_time"]
+        )  # Offset from concat to real time for this bout
+        # print('offset', bout_offset)
+        on_off_df.loc[bout_on_off, "start_time"] = (
+            on_off_df.loc[bout_on_off, "start_time"] + bout_offset
+        )
+        on_off_df.loc[bout_on_off, "end_time"] = (
+            on_off_df.loc[bout_on_off, "end_time"] + bout_offset
+        )
+        # bout information
+        bout_state = row["state"]
+        on_off_df.loc[bout_on_off, "bout_state"] = bout_state
+        # on_off_df.loc[bout_on_off, "bout_idx"] = row.name
+        # on_off_df.loc[bout_on_off, "bout_concat_start_time"] = row["start_time"]
+        # on_off_df.loc[bout_on_off, "bout_end_time"] = row["end_time"]
+        # on_off_df.loc[bout_on_off, "bout_duration"] = row["duration"]
+        # Go to next bout
+        bout_concat_start_time = bout_concat_end_time
 
         # Total state time per condition
         # for bout_state in
@@ -123,21 +120,21 @@ class OnOffModel(object):
 
     Args:
             trains_list (list of array-like): Sorted MUA spike times for each cluster
-            Tmax (float): End time of recording.
+            bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
+                    'start_time', 'end_time', 'duration' and 'state' columns. We consider
+                    only spikes within these bouts for on-off detection (by
+                    cutting-and-concatenating the trains of each cluster).  The
+                    "state", "start_time" and "end_time" of the bout each on or
+                    off period pertains to is saved in the "bout_state",
+                    "bout_start_time" and "bout_end_time" columns. ON or OFF
+                    periods that are not STRICTLY comprised within bouts are
+                    dismissed ()
 
     Kwargs:
             cluster_ids (array-like): Cluster ids. Added to output df if provided
                     (default None)
             method (string): Method used for On-off detection.
             params (dict): Dict of parameters. Recognized params depend of <method>
-            bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
-                    'start_time', 'end_time', 'duration' and 'state' columns. If
-                    provided, we consider only spikes within these bouts for on-off
-                    detection (by cutting-and-concatenating the trains of each cluster).
-                    The "state", "start_time" and "end_time" of the bout each on or off
-                    period pertains to is saved in the "bout_state", "bout_start_time"
-                    and "bout_end_time" columns. ON or OFF periods that are not STRICTLY
-                    comprised within bouts are dismissed ()
             pooled_detection (bool): Single on-off detection using all clusters,
                     or run a on-off detection for each cluster separately
             n_jobs (int): Only if pooled_detection is False
@@ -147,11 +144,10 @@ class OnOffModel(object):
     def __init__(
         self,
         trains_list,
-        Tmax,
+        bouts_df,
         cluster_ids=None,
         method="hmmem",
         params=None,
-        bouts_df=None,
         pooled_detection=True,
         n_jobs=1,
         verbose=True,
@@ -164,10 +160,6 @@ class OnOffModel(object):
         else:
             self.cluster_ids = np.array(["" for i in range(len(trains_list))])
         self.pooled_detection = pooled_detection
-        if Tmax is None or Tmax == float("Inf"):
-            Tmax = max([max(train) for train in self.trains_list])
-        self.Tmax = Tmax
-        assert isinstance(self.Tmax, (float, int))
         if bouts_df is not None:
             assert all(
                 [
@@ -212,7 +204,6 @@ class OnOffModel(object):
                 self.cluster_ids,
                 self.detection_func,
                 self.trains_list,
-                self.Tmax,
                 self.bouts_df,
                 self.params,
                 self.verbose,
@@ -231,7 +222,6 @@ class OnOffModel(object):
                         [cluster_id],
                         self.detection_func,
                         [self.trains_list[i]],
-                        self.Tmax,
                         self.bouts_df,
                         self.params,
                         self.verbose,
@@ -246,7 +236,6 @@ class OnOffModel(object):
                         cluster_id,
                         self.detection_func,
                         [self.trains_list[i]],
-                        self.Tmax,
                         self.bouts_df,
                         self.params,
                         self.verbose,
