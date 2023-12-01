@@ -117,7 +117,6 @@ class SpatialOffModel(on_off.OnOffModel):
         cluster_depths,
         bouts_df,
         cluster_ids=None,
-        cluster_firing_rates=None,
         on_off_method="hmmem",
         on_off_params=None,
         spatial_params=None,
@@ -140,15 +139,7 @@ class SpatialOffModel(on_off.OnOffModel):
         assert len(cluster_depths) == len(self.cluster_ids)
         self.cluster_depths = np.array(cluster_depths)
         # Spatial pooling info
-        window_min_fr = self.spatial_params["window_min_fr"]
-        if window_min_fr is not None and window_min_fr > 0:  # if not Non
-            if cluster_firing_rates is None:
-                raise ValueError(
-                    "`cluster_firing_rates` kwarg should be specified if spatial param `window_min_fr` > 0"
-                )
-            assert len(cluster_firing_rates) == len(cluster_ids)
-            cluster_firing_rates = np.array(cluster_firing_rates)
-        self.cluster_firing_rates = cluster_firing_rates
+        self.cluster_firing_rates = self.get_cluster_firing_rates()
         self.windows_df = self.initialize_windows_df()
         # Output
         self.all_windows_on_off_df = None  # Pre-merging
@@ -177,6 +168,13 @@ class SpatialOffModel(on_off.OnOffModel):
         self._spatial_params = {k: v for k, v in SPATIAL_PARAMS.items()}
         self._spatial_params.update(params)
         print(f"Spatial params: {self._spatial_params}")
+
+    def get_cluster_firing_rates(self):
+        total_duration = self.bouts_df.duration.sum()
+        return np.array([
+            len(train) / total_duration
+            for train in self.trains_list
+        ])
 
     def initialize_windows_df(self):
         p = self.spatial_params
