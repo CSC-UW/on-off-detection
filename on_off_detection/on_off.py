@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from .methods.hmmem import HMMEM_PARAMS, run_hmmem
 from .methods.threshold import THRESHOLD_PARAMS, run_threshold
-from .utils import subset_sorted_train, merge_trains_list
+from .utils import subset_sorted_train, merge_trains_list, slice_and_concat_sorted_train
 
 METHODS = {
     "threshold": run_threshold,
@@ -39,16 +39,16 @@ def _run_detection(
     Tmax = bouts_df.duration.sum()
     if verbose:
         print(f"Cut and concatenate bouts: subselect T={Tmax} seconds within bouts")
-    merged_train = subset_sorted_train(
+    sliced_concat_train = slice_and_concat_sorted_train(
         merged_train, bouts_df
     )  # Times in cut-and-concatenated bouts
-    if not len(merged_train):
+    if not len(sliced_concat_train):
         raise ValueError(
             "Attempting to perform on/off detection on an empty spike train"
         )
 
     on_off_df = detection_func(
-        merged_train,
+        sliced_concat_train,
         Tmax,
         params,
         verbose=verbose,
@@ -119,16 +119,17 @@ class OnOffModel(object):
     """Run ON and OFF-state detection from MUA data.
 
     Args:
-            trains_list (list of array-like): Sorted MUA spike times for each cluster
-            bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
-                    'start_time', 'end_time', 'duration' and 'state' columns. We consider
-                    only spikes within these bouts for on-off detection (by
-                    cutting-and-concatenating the trains of each cluster).  The
-                    "state", "start_time" and "end_time" of the bout each on or
-                    off period pertains to is saved in the "bout_state",
-                    "bout_start_time" and "bout_end_time" columns. ON or OFF
-                    periods that are not STRICTLY comprised within bouts are
-                    dismissed ()
+        trains_list (list of array-like): Sorted MUA spike times for each cluster.
+                Spike outside of bouts are ignored.
+        bouts_df (pd.DataFrame): Frame containing bouts of interest. Must contain
+                'start_time', 'end_time', 'duration' and 'state' columns. We consider
+                only spikes within these bouts for on-off detection (by
+                cutting-and-concatenating the trains of each cluster).  The
+                "state", "start_time" and "end_time" of the bout each on or
+                off period pertains to is saved in the "bout_state",
+                "bout_start_time" and "bout_end_time" columns. ON or OFF
+                periods that are not STRICTLY comprised within bouts are
+                dismissed ()
 
     Kwargs:
             cluster_ids (array-like): Cluster ids. Added to output df if provided
@@ -148,19 +149,20 @@ class OnOffModel(object):
         verbose=True,
     ):
 
-        self.trains_list = [sorted(train) for train in trains_list]
+        self.trains_list = [
+            subset_sorted_train(bouts_df, np.sort(train)) for train in trains_list
+        ]
         if cluster_ids is not None:
             assert len(cluster_ids) == len(trains_list)
             self.cluster_ids = np.array(cluster_ids)
         else:
             self.cluster_ids = np.array(["" for i in range(len(trains_list))])
-        if bouts_df is not None:
-            assert all(
-                [
-                    c in bouts_df.columns
-                    for c in ["start_time", "end_time", "state", "duration"]
-                ]
-            )
+        assert all(
+            [
+                c in bouts_df.columns
+                for c in ["start_time", "end_time", "duration", "state"]
+            ]
+        )
         self.bouts_df = bouts_df
 
         # Method and params

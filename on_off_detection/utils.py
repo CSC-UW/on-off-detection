@@ -2,8 +2,22 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
+def subset_sorted_train(bouts_df: pd.DataFrame, train: np.ndarray[float]) -> np.ndarray[bool]:
+    """Return spikes covered by bouts."""
 
-def subset_sorted_train(train, bouts_df):
+    assert np.all(np.diff(train) >= 0), "The times must be increasing."
+    assert train.ndim == 1
+
+    epoch_idxs = np.searchsorted(
+        train, np.c_[bouts_df.start_time.to_numpy(), bouts_df.end_time.to_numpy()]
+    )
+    result = np.full_like(train, fill_value=False, dtype="bool")
+    for i, ep in enumerate(epoch_idxs):
+        result[ep[0] : ep[1]] = True
+    return train[result]
+
+def slice_and_concat_sorted_train(train, bouts_df):
+    "Spike times relative to cumulative time within bouts."
     train = np.array(train)
     current_concatenated_start = 0
     res = []
