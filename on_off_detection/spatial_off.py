@@ -46,8 +46,6 @@ def _run_detection(
         cluster_ids=window_cluster_ids,
         method=on_off_method,
         params=on_off_params,
-        pooled_detection=True,
-        n_jobs=1,
         verbose=verbose,
     )
     try:
@@ -132,13 +130,12 @@ class SpatialOffModel(on_off.OnOffModel):
             cluster_ids=cluster_ids,
             method=on_off_method,
             params=on_off_params,
-            pooled_detection=True,
-            n_jobs=n_jobs,
             verbose=verbose,
         )
         #
         self._spatial_params = None
         self.spatial_params = spatial_params
+        self.n_jobs=n_jobs
         # Depths
         assert len(cluster_depths) == len(self.cluster_ids)
         self.cluster_depths = np.array(cluster_depths)

@@ -135,9 +135,6 @@ class OnOffModel(object):
                     (default None)
             method (string): Method used for On-off detection.
             params (dict): Dict of parameters. Recognized params depend of <method>
-            pooled_detection (bool): Single on-off detection using all clusters,
-                    or run a on-off detection for each cluster separately
-            n_jobs (int): Only if pooled_detection is False
             verbose (bool): (default True)
     """
 
@@ -148,8 +145,6 @@ class OnOffModel(object):
         cluster_ids=None,
         method="hmmem",
         params=None,
-        pooled_detection=True,
-        n_jobs=1,
         verbose=True,
     ):
 
@@ -159,7 +154,6 @@ class OnOffModel(object):
             self.cluster_ids = np.array(cluster_ids)
         else:
             self.cluster_ids = np.array(["" for i in range(len(trains_list))])
-        self.pooled_detection = pooled_detection
         if bouts_df is not None:
             assert all(
                 [
@@ -168,10 +162,6 @@ class OnOffModel(object):
                 ]
             )
         self.bouts_df = bouts_df
-        if n_jobs is None:
-            n_jobs = 1
-        self.n_jobs = n_jobs
-        assert isinstance(self.n_jobs, int)
 
         # Method and params
         self.method = method
@@ -197,56 +187,17 @@ class OnOffModel(object):
         self.on_off_df = None
 
     def run(self):
-        if self.pooled_detection:
-            if self.verbose:
-                print("Run on-off detection on pooled data")
-            self.on_off_df = _run_detection(
-                self.cluster_ids,
-                self.detection_func,
-                self.trains_list,
-                self.bouts_df,
-                self.params,
-                self.verbose,
-                i=None,
-            )
-        else:
-            if self.verbose:
-                print(
-                    f"Run on-off detection for each cluster independently (N={len(self.cluster_ids)})"
-                )
-
-            if self.n_jobs == 1:
-                on_off_dfs = []
-                for i, cluster_id in tqdm(enumerate(range(len(self.cluster_ids)))):
-                    cluster_on_off_df = _run_detection(
-                        [cluster_id],
-                        self.detection_func,
-                        [self.trains_list[i]],
-                        self.bouts_df,
-                        self.params,
-                        self.verbose,
-                        i=i,
-                    )
-                    on_off_dfs.append(cluster_on_off_df)
-            else:
-                from joblib import Parallel, delayed
-
-                on_off_dfs = Parallel(n_jobs=self.n_jobs, backend="multiprocessing")(
-                    delayed(_run_detection)(
-                        cluster_id,
-                        self.detection_func,
-                        [self.trains_list[i]],
-                        self.bouts_df,
-                        self.params,
-                        self.verbose,
-                        i,
-                    )
-                    for i, cluster_id in enumerate(self.cluster_ids)
-                )
-
-            print("Done getting all units' on off periods")
-            self.on_off_df = pd.concat(on_off_dfs)
-
+        if self.verbose:
+            print("Run on-off detection on pooled data")
+        self.on_off_df = _run_detection(
+            self.cluster_ids,
+            self.detection_func,
+            self.trains_list,
+            self.bouts_df,
+            self.params,
+            self.verbose,
+            i=None,
+        )
         return self.on_off_df
 
     # def save():
