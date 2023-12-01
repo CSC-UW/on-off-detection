@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from .methods.hmmem import HMMEM_PARAMS, run_hmmem
 from .methods.threshold import THRESHOLD_PARAMS, run_threshold
-from .utils import subset_sorted_train, merge_trains_list, slice_and_concat_sorted_train
+from .utils import subset_sorted_train, kway_mergesort, slice_and_concat_sorted_train
 
 METHODS = {
     "threshold": run_threshold,
@@ -34,7 +34,7 @@ def _run_detection(
 
     if verbose:
         print(f"Merge N={len(trains_list)} spike trains")
-    merged_train = merge_trains_list(trains_list)
+    merged_train = kway_mergesort(trains_list)
 
     Tmax = bouts_df.duration.sum()
     if verbose:

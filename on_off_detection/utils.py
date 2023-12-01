@@ -31,8 +31,54 @@ def slice_and_concat_sorted_train(train, bouts_df):
     return np.hstack(res)
 
 
-def merge_trains_list(trains_list):
-    return sorted([inner for outer in trains_list for inner in outer])
+def all_equal(iterator):
+    """Check if all items in an un-nested array are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(first == rest for rest in iterator)
+    except StopIteration:
+        return True
+
+
+def kway_mergesort(arrays: list[np.ndarray], indices=False):
+    """Merge and sort input arrays.
+
+    If indices = True, the returned indices have the length of the inputs, and the indices
+    show the position in the output to which an input value was copied.
+
+    When your input arrays are already in sorted order, performance is very good:
+    much faster than using sortednp.merge iteratively, or using heapq to kway merge.
+    Plus, mapping input-to-output locations is easier.
+    """
+    # Allocate output array
+    dtypes = [a.dtype for a in arrays]
+    assert all_equal(dtypes), "All input arrays must have the same dtype"
+    dtype = dtypes[0]
+    array_sizes = np.asarray([a.size for a in arrays])
+    N = np.sum(array_sizes)
+    merged = np.zeros(N, dtype=dtype)
+
+    # Fill output arrays with unsorted data
+    pos = 0
+    for a in arrays:
+        n = a.size
+        merged[pos : pos + n] = a
+        pos += n
+
+    # Sort. Setting kind='mergesort' will use usually Timsort under the hood, for floats, and radixx sort for ints
+    order = np.argsort(merged, kind="mergesort")
+    merged = merged[order]
+
+    # Get location of input elements in sorted, merged output
+    if indices:
+        indices = np.empty(N, dtype=np.int64)
+        indices[order] = np.arange(N)
+        bounds = np.append(0, np.cumsum(array_sizes))
+        indices = tuple(indices[i:j] for i, j in it.pairwise(bounds))
+        return merged, indices
+    else:
+        return merged
 
 
 def state_starts(states_list, state):
