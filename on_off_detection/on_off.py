@@ -105,9 +105,9 @@ def _run_detection(
         #         on_off_df["bout_state"] == bout_state, "bout_state_total_time"
         #     ] = total_state_time
 
-        on_off_df = on_off_df[on_off_df["bout_state"] != "interbout"].reset_index(
-            drop=True
-        )
+    on_off_df = on_off_df[on_off_df["bout_state"] != "interbout"].reset_index(
+        drop=True
+    )
 
     if verbose:
         print(f"Found N={len(on_off_df)} on/off periods.")
