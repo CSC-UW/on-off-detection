@@ -12,6 +12,22 @@ Differences from original MATLAB code:
 - Use numpy RNG in newton_ralphson (So different output as MATLAB) ( TODO: https://stackoverflow.com/a/36823993 )
 - Max number of iterations is params['n_iter_EM'] rather than n_iter_EM - 1
 - normalize "bin_history_spike_count"
+
+Heuristics (tested in rat prelimbic cortex during sleep recovery)
+- HMMEM model stays stuck in very low OFF fr region with init_state_off_on_fr_ratio_thresh <= 0.02. Can be used to enforce no spikes during OFFs, but effectively defeats the purpose of HMMEM optimization
+- Utterly fails with sumFR <= 60Hz
+- With FR = 80Hz, not so good and very  sensitive on initialization:
+    - long tail in OFFs duration with init_state_off_on_fr_ratio_thresh = 0.1, looks dubious on visual inspection
+    - No/few offs (fails) with init_state_off_on_fr_ratio_thresh = 0.05, which works well for higher firing rate
+- With FR = 100Hz, looks pretty good
+    - init_state_off_on_fr_ratio_thresh = 0.03 looks overly conservative, some OFFs split around single spikes that should probably not be.
+    - init_state_off_on_fr_ratio_thresh = 0.05 looks sane, very low FR OFFs but not null. Can be considered conservative
+    - init_state_off_on_fr_ratio_thresh = 0.1 looks ok. Some OFFs with a number of spikes that could be considered false positives. 15% more offs than with 0.05
+    - history_window_n_bins = 2 fails
+    - history_window_n_bins = 10 looks fine
+    - history_window_n_bins >= 20 seems to find more false negatives
+
+For cortical data I recommend 100Hz minimum population rate, init_state_off_on_fr_ratio_thresh=0.05 and history_window_n_bins = 10
 """
 
 import numpy as np
@@ -22,6 +38,7 @@ from scipy.special import factorial
 from .. import utils
 from .exceptions import NumericalErrorException, FailedInitializationException
 
+
 HMMEM_PARAMS = {
     "binsize": 0.010,  # (s) (Discrete algorithm)
     "history_window_nbins": 3,  # Size of history window IN BINS
@@ -30,11 +47,11 @@ HMMEM_PARAMS = {
     "init_A": np.array(
         [[0.1, 0.9], [0.01, 0.99]]
     ),  # Initial transition probability matrix
-    "init_state_estimate_method": "liberal",  # Method to find inital OFF states to fit GLM model with. Ignored if init_mu/alphaa/betaa are specified. Either of 'conservative'/'liberal'/'intermediate'
+    "init_state_off_on_fr_ratio_thresh": 0.05, # During initialization, after removing OFFs shorter than 0.05msec, we remove OFFs with FR less than init_state_off_on_fr_ratio_thresh times the grand mean ON state firing rate
     "init_mu": None,  # ~ OFF rate. Fitted to data if None
     "init_alphaa": None,  # ~ difference between ON and OFF rate. Fitted to data if None
     "init_betaa": None,  # ~ Weight of recent history firing rate. Fitted to data if None,
-    "gap_threshold": None,  # Merge active states separated by less than gap_threhsold
+    "min_off_duration": None,  # Merge active states separated by less than this
 }
 
 
@@ -93,7 +110,7 @@ def run_hmmem(
             bin_spike_count_trimmed[0, :],
             bin_history_spike_count_trimmed[0, :],
             params["binsize"],
-            init_state_estimate_method=params.get("init_state_estimate_method", None),
+            init_state_off_on_fr_ratio_thresh=params["init_state_off_on_fr_ratio_thresh"],
         )
     else:
         if any([params[k] is None for k in ["init_alphaa", "init_mu", "init_betaa"]]):
@@ -144,8 +161,8 @@ def run_hmmem(
 
     ## Remove short OFF states and return as pd.Dataframe
 
-    # Merge active states separated by less than gap_threshold
-    if params["gap_threshold"] is not None and params["gap_threshold"] > 0:
+    # Merge active states separated by less than min_off_duration
+    if params["min_off_duration"] is not None and params["min_off_duration"] > 0:
         if verbose:
             print("Merge closeby on-periods...", end="")
         off_durations = utils.state_durations(active_bin, 0, srate=srate)
@@ -153,7 +170,7 @@ def run_hmmem(
         off_ends = utils.state_ends(active_bin, 0)
         N_merged = 0
         for i, off_dur in enumerate(off_durations):
-            if off_dur <= params["gap_threshold"]:
+            if off_dur <= params["min_off_duration"]:
                 active_bin[off_starts[i] : off_ends[i] + 1] = 1
                 N_merged += 1
         if verbose:
@@ -457,18 +474,12 @@ def get_initial_state_estimate(
     binsize,
     method="liberal",
     off_min_duration=0.05,
-    on_min_duration=0.01,
+    off_on_fr_ratio_threshold=0.05,
 ):
     """Compute initial estimate of ON/OFF states.
 
     Used to fit GLM parameters and initialize HMMEM algorithm.
     Ideally we'd use a ground truth.
-
-    Here we initialize assuming OFF bins are those with:
-        - minimal count for more than 50msec (`method`=='conservative')
-        - almost minimal count for more than 50msec (`method`=='liberal')
-        - minimal count for more than 50msec, allowing for 10msec of
-            almost minimal count
     """
     if method is None:
         method = "liberal"
@@ -488,17 +499,36 @@ def get_initial_state_estimate(
                 active_bin[state_starts[i] : state_ends[i] + 1] = not state
         return active_bin
 
-    if method == "liberal":
-        active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(bool)
-    elif method == "conservative":
-        active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
-    elif method == "intermediate":
-        active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
-        # Remove very short ONs
-        active_bin = _flip_short_periods(active_bin, 1, on_min_duration, binsize)
+    def _flip_low_fr_offs(bin_spike_count, active_bin, thresh_fr, binsize):
+        srate = 1 / binsize
+        state_durations = utils.state_durations(active_bin, 0, srate=srate)  # (sec)
+        state_starts = utils.state_starts(active_bin, 0)
+        state_ends = utils.state_ends(active_bin, 0)
+        for i, dur in enumerate(state_durations):
+            n_spikes = np.sum(bin_spike_count[state_starts[i] : state_ends[i]])
+            if n_spikes > dur * thresh_fr:
+                active_bin[state_starts[i] : state_ends[i]] = 1
+        return active_bin
+    
+    # if method == "liberal":
+    #     active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(bool)
+    # elif method == "conservative":
+    #     active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
+    # elif method == "intermediate":
+    #     active_bin = (bin_spike_count > min(bin_spike_count)).astype(bool)
+    #     # Remove very short ONs
+    #     active_bin = _flip_short_periods(active_bin, 1, on_min_duration, binsize)
+
+    active_bin = (bin_spike_count > min(bin_spike_count) + 1).astype(bool)
 
     # Remove short off periods
     active_bin = _flip_short_periods(active_bin, 0, off_min_duration, binsize)
+
+    # Remove off periods with above-threshold firing
+    # FR during ON so far
+    on_fr = np.sum(bin_spike_count[active_bin]) / (np.sum(active_bin) * binsize)
+    thresh_fr = on_fr * off_on_fr_ratio_threshold
+    active_bin = _flip_low_fr_offs(bin_spike_count, active_bin, thresh_fr, binsize)
 
     if all(active_bin):
         # Found only ONs
@@ -514,7 +544,7 @@ def fit_init_poisson_params(
     bin_spike_count,
     bin_history_spike_count,
     binsize,
-    init_state_estimate_method="liberal",
+    init_state_off_on_fr_ratio_thresh=None,
 ):  # 1D arrays
 
     ## Result
@@ -524,7 +554,7 @@ def fit_init_poisson_params(
     state = get_initial_state_estimate(
         bin_spike_count,
         binsize,
-        method=init_state_estimate_method,
+        off_on_fr_ratio_threshold=init_state_off_on_fr_ratio_thresh,
     )
     exog = sm.add_constant(
         pd.DataFrame(
