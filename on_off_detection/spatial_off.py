@@ -177,68 +177,76 @@ class SpatialOffModel(on_off.OnOffModel):
         ])
 
     def initialize_windows_df(self):
-        p = self.spatial_params
-        # Window sizes (ie spatial grain)
-        min_depth, max_depth = min(self.cluster_depths), max(self.cluster_depths)
-        max_window_size = max_depth - min_depth
-        min_window_size = min(p["window_size_min"], max_window_size)
-        unique_window_sizes = np.arange(
-            min_window_size, max_window_size, p["window_size_step"]
-        ).tolist()
-        if max_window_size not in unique_window_sizes:
-            unique_window_sizes.append(max_window_size)
-        # Moving window for each window size, which clusters, which min/max depths
-        # Across all spatial grains:
-        all_window_sizes = []
+
+        SPATIAL_RES = 20
+
+        window_min_fr = self.spatial_params["window_min_fr"]
+        window_min_size = self.spatial_params["window_min_size"]
+        window_fr_overlap = self.spatial_params["window_fr_overlap"]
+
+        # Get cumulative firing rate 
+        depths = self.cluster_depths
+        bins = np.arange(depths.min(), depths.max() + SPATIAL_RES, SPATIAL_RES) # Endpoint inclusive
+        depthFR, bins = np.histogram(depths, weights=self.cluster_firing_rates, bins=bins)
+        cumFR = np.cumsum(depthFR)
+
+        lo_idx = 0
+        hi_idx = 0
         all_window_depths = []
+        all_window_sizes = []
         all_window_cluster_indices = []
         all_window_cluster_ids = []
-        all_window_cluster_depths = []
-        # For each spatial grain...
-        for window_size in unique_window_sizes:
-            # Sliding windows
-            step = window_size * (1 - p["window_overlap"])
-            if step <= 0:
-                raise ValueError("Invalid value for `window_overlap` spatial parameter")
-            depth_starts = np.arange(min_depth, max_depth - window_size, step).tolist()
-            if max_depth - window_size not in depth_starts:
-                depth_starts.append(max_depth - window_size)
-            depth_intervals = [(d, d + window_size) for d in depth_starts]
-            # For each sliding window at that spatial grain...
-            for depth_interval in depth_intervals:
-                start, end = depth_interval
-                # Which clusters for each sliding window
-                # Inclusive on both sides out of laziness
-                window_cluster_indices = np.where(
-                    np.logical_and(
-                        start <= self.cluster_depths, self.cluster_depths <= end
-                    )
-                )[0]
-                window_cluster_ids = self.cluster_ids[window_cluster_indices]
-                window_cluster_depths = self.cluster_depths[window_cluster_indices]
-                # Exclude windows with too low firing rate:
-                window_min_fr = p.get("window_min_fr", 0)
-                if window_min_fr is not None and window_min_fr > 0:
-                    window_firing_rate = np.sum(
-                        self.cluster_firing_rates[window_cluster_indices]
-                    )
-                    if window_firing_rate < window_min_fr:
-                        continue
-                    # print(window_firing_rate)
-                # Save information for this window
-                all_window_sizes.append(window_size)
-                all_window_depths.append(depth_interval)
-                all_window_cluster_indices.append(window_cluster_indices)
-                all_window_cluster_ids.append(window_cluster_ids)
-                all_window_cluster_depths.append(window_cluster_depths)
+        all_window_sumFR = []
+
+        # Iterate until reaching max depth
+        while hi_idx < len(bins) - 1:
+
+            # All candidate bin indices matching size and fr requirement
+            idx_above = np.where(
+                ((cumFR - cumFR[lo_idx]) > window_min_fr) 
+                & ((bins[:-1] - bins[lo_idx]) > window_min_size)
+            )[0]
+            if not len(idx_above):
+                # We reached the end
+                hi_idx = len(bins) - 1
+                # Ensure last window as well has the minimal required size and FR
+                lo_idx = np.where(
+                    ((cumFR - cumFR[-1]) < - window_min_fr)
+                    & ((bins[:-1] - bins[hi_idx]) < - window_min_size)
+                    # & 
+                )[0][-1]
+            else:
+                hi_idx = idx_above[0]
+
+            lo, hi = bins[lo_idx], bins[hi_idx]
+            window_cluster_indices = np.where(
+                np.logical_and(
+                    lo <= self.cluster_depths, self.cluster_depths <= hi
+                )
+            )[0].astype(int)
+
+            # Save information for this window
+            all_window_sizes.append(hi - lo)
+            all_window_depths.append((lo, hi))
+            all_window_cluster_indices.append(window_cluster_indices)
+            all_window_cluster_ids.append(self.cluster_ids[window_cluster_indices])
+            window_sumFR = np.sum(self.cluster_firing_rates[window_cluster_indices])
+            all_window_sumFR.append(window_sumFR)
+
+
+            # Next window defined from overlap in cumulative firing rate
+            lo_cumFR = cumFR[lo_idx]
+            hi_cumFR = cumFR[min(hi_idx, len(cumFR) - 1)]
+            lo_idx = np.where(cumFR > (hi_cumFR - lo_cumFR) * (1 - window_fr_overlap) + lo_cumFR)[0][0]
+
+
         return pd.DataFrame(
             {
                 "window_size": all_window_sizes,
                 "window_depths": all_window_depths,
+                "window_sumFR": all_window_sumFR,
                 "window_cluster_indices": all_window_cluster_indices,
                 "window_cluster_ids": all_window_cluster_ids,
-                "window_cluster_depths": all_window_cluster_depths,
-                "window_n_clusters": [len(cs) for cs in all_window_cluster_ids],
             }
         ).reset_index()
 
