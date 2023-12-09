@@ -93,7 +93,7 @@ def _run_detection(
         on_off_df.loc[bout_on_off, "bout_state"] = bout_state
         # on_off_df.loc[bout_on_off, "bout_idx"] = row.name
         # on_off_df.loc[bout_on_off, "bout_concat_start_time"] = row["start_time"]
-        # on_off_df.loc[bout_on_off, "bout_end_time"] = row["end_time"]
+        # on_off_df.loc[bout_on_off, "bout_concat_end_time"] = row["end_time"]
         # on_off_df.loc[bout_on_off, "bout_duration"] = row["duration"]
         # Go to next bout
         bout_concat_start_time = bout_concat_end_time
@@ -163,6 +163,7 @@ class OnOffModel(object):
                 for c in ["start_time", "end_time", "duration", "state"]
             ]
         )
+        assert bouts_df.duration.sum(), f"Empty bouts"
         self.bouts_df = bouts_df
 
         # Method and params
