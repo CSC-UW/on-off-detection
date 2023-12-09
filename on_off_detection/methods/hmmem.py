@@ -41,7 +41,7 @@ from .exceptions import NumericalErrorException, FailedInitializationException
 
 HMMEM_PARAMS = {
     "binsize": 0.010,  # (s) (Discrete algorithm)
-    "history_window_nbins": 3,  # Size of history window IN BINS
+    "history_window_nbins": 10,  # Size of history window IN BINS
     "n_iter_EM": 200,  # Number of iterations for EM
     "n_iter_newton_ralphson": 100,
     "init_A": np.array(
