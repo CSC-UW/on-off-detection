@@ -32,7 +32,7 @@ def _run_detection(
 ):
     window_i = window_row.name
     if verbose:
-        print(f'Run window #{window_i+1}/N, window={window_row["window_depths"]}')
+        print(f'Run window #{window_i+1}/N, window={window_row["window_lo"]}-{window_row["window_hi"]}')
 
     on_off_model = on_off.OnOffModel(
         window_trains_list,
@@ -48,7 +48,7 @@ def _run_detection(
         window_on_off_df["exception"] = None
     except ALL_METHOD_EXCEPTIONS as e:
         print(
-            f"Caught the following exception for window={window_row['window_depths']}"
+            f"Caught the following exception for window={window_row['window_lo']}-{window_row['window_hi']}"
         )
         print(e)
         window_on_off_df = pd.DataFrame(
@@ -61,9 +61,9 @@ def _run_detection(
 
     # Store window information
     window_on_off_df["window_idx"] = window_i
-    window_on_off_df = window_on_off_df.assign(
-        **{k: [v] * len(window_on_off_df) for k, v in window_row.items()}
-    )
+    window_on_off_df["lo"] = window_row["window_lo"]
+    window_on_off_df["hi"] = window_row["window_hi"]
+    window_on_off_df["span"] = window_row["window_span"]
 
     return window_on_off_df
 
@@ -139,10 +139,17 @@ class SpatialOffModel(on_off.OnOffModel):
             raise ValueError(
                 "Cumulative firing rate = {sumFR}Hz, too low for requested `windows_min_fr` param"
             )
-        self.windows_df = self.initialize_windows_df()
+        self.initialize_default_windows_df()
         # Output
         self.all_windows_on_off_df = None  # Pre-merging
         self.off_df = None  # Final, post-merging
+
+    def get_cluster_firing_rates(self):
+        total_duration = self.bouts_df.duration.sum()
+        return np.array([
+            len(train) / total_duration
+            for train in self.trains_list
+        ])
 
     @property
     def spatial_params(self):
@@ -167,15 +174,35 @@ class SpatialOffModel(on_off.OnOffModel):
         self._spatial_params = {k: v for k, v in SPATIAL_PARAMS.items()}
         self._spatial_params.update(params)
         print(f"Spatial params: {self._spatial_params}")
+    
+    @property
+    def windows_df(self):
+        return self._windows_df
 
-    def get_cluster_firing_rates(self):
-        total_duration = self.bouts_df.duration.sum()
-        return np.array([
-            len(train) / total_duration
-            for train in self.trains_list
-        ])
+    @windows_df.setter
+    def windows_df(self, windows_df):
+        assert all([c in windows_df.columns for c in ["window_lo", "window_hi", "window_span"]])
 
-    def initialize_windows_df(self):
+        windows_df["window_cluster_indices"] = windows_df.apply(
+            lambda row: np.where(
+                    np.logical_and(
+                        row.window_lo <= self.cluster_depths, self.cluster_depths <= row.window_hi
+                    )
+            )[0].astype(int),
+            axis=1,
+        )
+        windows_df["window_cluster_ids"] = windows_df.apply(
+            lambda row: self.cluster_ids[row.window_cluster_indices],
+            axis=1
+        )
+        windows_df["window_sumFR"] = windows_df.apply(
+            lambda row: np.sum(self.cluster_firing_rates[row.window_cluster_indices]),
+            axis=1
+        )
+
+        self._windows_df = windows_df
+
+    def initialize_default_windows_df(self):
 
         SPATIAL_RES = 20
 
@@ -191,11 +218,9 @@ class SpatialOffModel(on_off.OnOffModel):
 
         lo_idx = 0
         hi_idx = 0
-        all_window_depths = []
-        all_window_sizes = []
-        all_window_cluster_indices = []
-        all_window_cluster_ids = []
-        all_window_sumFR = []
+        all_window_los = []
+        all_window_his = []
+        all_window_spans = []
 
         # Iterate until reaching max depth
         while hi_idx < len(bins) - 1:
@@ -218,36 +243,24 @@ class SpatialOffModel(on_off.OnOffModel):
                 hi_idx = idx_above[0]
 
             lo, hi = bins[lo_idx], bins[hi_idx]
-            window_cluster_indices = np.where(
-                np.logical_and(
-                    lo <= self.cluster_depths, self.cluster_depths <= hi
-                )
-            )[0].astype(int)
 
             # Save information for this window
-            all_window_sizes.append(hi - lo)
-            all_window_depths.append((lo, hi))
-            all_window_cluster_indices.append(window_cluster_indices)
-            all_window_cluster_ids.append(self.cluster_ids[window_cluster_indices])
-            window_sumFR = np.sum(self.cluster_firing_rates[window_cluster_indices])
-            all_window_sumFR.append(window_sumFR)
-
+            all_window_spans.append(hi - lo)
+            all_window_los.append(lo)
+            all_window_his.append(hi)
 
             # Next window defined from overlap in cumulative firing rate
             lo_cumFR = cumFR[lo_idx]
             hi_cumFR = cumFR[min(hi_idx, len(cumFR) - 1)]
             lo_idx = np.where(cumFR > (hi_cumFR - lo_cumFR) * (1 - window_fr_overlap) + lo_cumFR)[0][0]
 
-
-        return pd.DataFrame(
+        self.windows_df = pd.DataFrame(
             {
-                "window_size": all_window_sizes,
-                "window_depths": all_window_depths,
-                "window_sumFR": all_window_sumFR,
-                "window_cluster_indices": all_window_cluster_indices,
-                "window_cluster_ids": all_window_cluster_ids,
+                "window_span": all_window_spans,
+                "window_lo": all_window_los,
+                "window_hi": all_window_his,
             }
-        ).reset_index()
+        ).reset_index(drop=True)
 
     def get_window_trains(self, window_row):
         """Return window_trains_list for a row of `self.windows_df`."""
@@ -357,7 +370,7 @@ class SpatialOffModel(on_off.OnOffModel):
                     refer to the intersection of all merged OFF periods
                 - `start_time_earliest`/`end_time_latest`/`duration_longest`:
                     Earliest/latest amongst merged offs.
-                - `depth_min`/`depth_max`/`depth_span`:
+                - `lo`/`hi`/`span`:
                     Span across merged offs
         """
         assert len(all_windows_on_off_df.index.unique()) == len(all_windows_on_off_df)
@@ -389,17 +402,13 @@ class SpatialOffModel(on_off.OnOffModel):
         off_df["duration_longest"] = off_df["duration"]
         off_df["N_merged_window_offs"] = 1
         off_df["merged_window_offs_indices"] = [[idx] for idx in off_df.index]
-        off_df[["depth_min", "depth_max"]] = pd.DataFrame(
-            off_df["window_depths"].to_list(), index=off_df.index
-        )
-        off_df["depth_span"] = off_df["depth_max"] - off_df["depth_min"]
         # Keep only meaningful columns
         off_df = off_df.loc[
             :,
             [
                 "state", "start_time_shared", "end_time_shared", "duration_shared",
                 "start_time_earliest", "end_time_latest", "duration_longest",
-                "depth_min", "depth_max", "depth_span",
+                "lo", "hi", "span",
                 "N_merged_window_offs", "merged_window_offs_indices",
             ]
         ]
@@ -477,9 +486,9 @@ def _merge_off_rows(base_off_row, selected_off_df):
     merged_off_row = base_off_row.copy()
 
     # New min/max depths
-    depth_mins, depth_maxs = selected_off_df["depth_min"].values, selected_off_df["depth_max"].values
-    new_depth_min = min(*list(depth_mins), merged_off_row["depth_min"])
-    new_depth_max = max(*list(depth_maxs), merged_off_row["depth_max"])
+    los, his = selected_off_df["lo"].values, selected_off_df["hi"].values
+    new_lo = min(*list(los), merged_off_row["lo"])
+    new_hi = max(*list(his), merged_off_row["hi"])
 
     # New start/end time (restrictive and extensive)
     start_times_shared = list(selected_off_df["start_time_shared"].values)
@@ -505,9 +514,9 @@ def _merge_off_rows(base_off_row, selected_off_df):
     merged_off_row["duration_shared"] = new_end_time_shared - new_start_time_shared
     merged_off_row["duration_longest"] = new_end_time_latest - new_start_time_earliest
     # Depths
-    merged_off_row["depth_min"] = new_depth_min
-    merged_off_row["depth_max"] = new_depth_max
-    merged_off_row["depth_span"] = new_depth_max - new_depth_min
+    merged_off_row["lo"] = new_lo
+    merged_off_row["hi"] = new_hi
+    merged_off_row["span"] = new_hi - new_lo
     # Origins
     merged_off_row["N_merged_window_offs"] += len(selected_off_df)
     merged_off_row["merged_window_offs_indices"] += list(selected_off_df.index)
@@ -516,10 +525,10 @@ def _merge_off_rows(base_off_row, selected_off_df):
 
 
 def _find_contiguous_off_indices(merged_off_row, nearby_off_df, spatial_params):
-    merged_depth_min, merged_depth_max = merged_off_row["depth_min"], merged_off_row["depth_max"]
+    merged_lo, merged_hi = merged_off_row["lo"], merged_off_row["hi"]
     min_depth_overlap = spatial_params["min_depth_overlap"]
     depth_overlap = nearby_off_df.apply(
-        lambda row: (min(row["depth_max"], merged_depth_max) - max(row["depth_min"], merged_depth_min)),
+        lambda row: (min(row["hi"], merged_hi) - max(row["lo"], merged_lo)),
         axis=1,
     )
     return nearby_off_df.index[
