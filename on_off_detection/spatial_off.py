@@ -32,9 +32,9 @@ def _run_detection(
     on_off_params,
     verbose=False,
 ):
-    window_i = window_row.name
+    window_id = window_row.name
     if verbose:
-        print(f'Run window #{window_i+1}/N, window={window_row["window_lo"]}-{window_row["window_hi"]}')
+        print(f'Run window {window_id}, window={window_row["window_lo"]}-{window_row["window_hi"]}')
 
     on_off_model = on_off.OnOffModel(
         window_trains_list,
@@ -45,29 +45,32 @@ def _run_detection(
         verbose=verbose,
     )
     try:
-        window_on_off_df = on_off_model.run()
-        window_on_off_df["raised_exception"] = False
-        window_on_off_df["exception"] = None
+        window_on_off_df, window_output_info = on_off_model.run()
+        window_output_info["raised_exception"] = False
+        window_output_info["exception"] = None
     except ALL_METHOD_EXCEPTIONS as e:
         print(
             f"Caught the following exception for window={window_row['window_lo']}-{window_row['window_hi']}"
         )
         print(e)
-        window_on_off_df = pd.DataFrame(
-            {
-                "raised_exception": [True],
-                "exception": [None],
-                "state": [None],
-            }
-        )
+        window_on_off_df = pd.DataFrame()
+        window_output_info = {
+            "raised_exception": True,
+            "exception": None,
+            "state": e,
+        }
 
     # Store window information
-    window_on_off_df["window_idx"] = window_i
+    window_on_off_df["window_id"] = window_id
     window_on_off_df["lo"] = window_row["window_lo"]
     window_on_off_df["hi"] = window_row["window_hi"]
     window_on_off_df["span"] = window_row["window_span"]
+    window_output_info["window_id"] = window_id
+    window_output_info["lo"] = window_row["window_lo"]
+    window_output_info["hi"] = window_row["window_hi"]
+    window_output_info["span"] = window_row["window_span"]
 
-    return window_on_off_df
+    return window_on_off_df, window_output_info
 
 
 class SpatialOffModel():
@@ -162,6 +165,7 @@ class SpatialOffModel():
         # Output
         self.all_windows_on_off_df = None  # Pre-merging
         self.off_df = None  # Final, post-merging
+        self.window_output_infos = None  # {<window_id>: <window_output_info>}
 
     def get_cluster_firing_rates(self):
         total_duration = self.bouts_df.duration.sum()
@@ -214,7 +218,7 @@ class SpatialOffModel():
                 """Number of parameter dictionaries doesn't match number of windows."""
             )
         print(f"Setting custom per-window parameters for N={len(per_window_on_off_params)} windows")
-        self._per_window_on_off_params = per_window_on_off_params
+        self._per_window_on_off_params = deepcopy(per_window_on_off_params)
 
     @property
     def windows_df(self):
@@ -223,6 +227,7 @@ class SpatialOffModel():
     @windows_df.setter
     def windows_df(self, windows_df):
         assert all([c in windows_df.columns for c in ["window_lo", "window_hi", "window_span"]])
+        windows_df = windows_df.copy()
 
         windows_df["window_cluster_indices"] = windows_df.apply(
             lambda row: np.where(
@@ -342,8 +347,9 @@ class SpatialOffModel():
 
         if self.n_jobs == 1:
             on_off_dfs = []
-            for i, (_, window_row) in tqdm(enumerate(self.windows_df.iterrows())):
-                window_on_off_df = _run_detection(
+            window_output_infos = {}
+            for i, (window_id, window_row) in tqdm(enumerate(self.windows_df.iterrows())):
+                window_on_off_df, window_output_info = _run_detection(
                     window_row,
                     self.get_window_trains(window_row),
                     self.get_window_cluster_ids(window_row),
@@ -353,33 +359,43 @@ class SpatialOffModel():
                     self.verbose,
                 )
                 on_off_dfs.append(window_on_off_df)
+                window_output_infos[window_id] = window_output_info
         else:
             from joblib import Parallel, delayed
 
-            on_off_dfs = Parallel(n_jobs=self.n_jobs, backend="multiprocessing")(
-                delayed(_run_detection)(
-                    window_row,
-                    self.get_window_trains(window_row),
-                    self.get_window_cluster_ids(window_row),
-                    self.bouts_df,
-                    self.method,
-                    per_window_on_off_params[i],
-                    self.verbose,
+            on_off_dfs, output_infos = zip(
+                *Parallel(n_jobs=self.n_jobs, backend="multiprocessing")(
+                    delayed(_run_detection)(
+                        window_row,
+                        self.get_window_trains(window_row),
+                        self.get_window_cluster_ids(window_row),
+                        self.bouts_df,
+                        self.method,
+                        per_window_on_off_params[i],
+                        self.verbose,
+                    )
+                    for i, (window_id, window_row) in enumerate(self.windows_df.iterrows())
                 )
-                for i, (_, window_row) in enumerate(self.windows_df.iterrows())
             )
+            window_output_infos = {
+                window_id: output_info for (window_id, _), output_info in zip(
+                    self.windows_df.iterrows(),
+                    output_infos
+                )
+            }
 
         dfs_to_concat = [df for df in on_off_dfs if df is not None]
         if len(dfs_to_concat):
             self.all_windows_on_off_df = pd.concat(dfs_to_concat).reset_index(drop=True)
         else:
             self.all_windows_on_off_df = pd.DataFrame()
+        self.window_output_infos = window_output_infos
         print(f"Done getting all windows on off periods.", end=" ")
         print(
             f"Found N={len(self.all_windows_on_off_df)} ON and OFF periods across windows."
         )
 
-        return self.all_windows_on_off_df
+        return self.all_windows_on_off_df, self.window_output_infos
 
     def run_off_df(self):
         all_windows_on_off_df = self.all_windows_on_off_df

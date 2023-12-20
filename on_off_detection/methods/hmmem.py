@@ -198,37 +198,31 @@ def run_hmmem(
     N_off = len(off_starts)
 
     # TODO: Return _run_hmmem info bin by bin?
-    N_on_off = N_on + N_off
     on_off_df = pd.DataFrame(
         {
-            "state": ["on" for i in range(N_on)] + ["off" for i in range(N_off)],
+            "state": ["on" for _ in range(N_on)] + ["off" for _ in range(N_off)],
             "start_time": list(on_starts) + list(off_starts),
             "end_time": list(on_ends) + list(off_ends),
             "duration": list(on_durations) + list(off_durations),
-            "cumFR": len(train) / Tmax,
-            "alphaa": alphaa,
-            "betaa": [betaa] * N_on_off,
-            "mu": mu,
-            "A": [A] * N_on_off,
-            "log_L": log_L,
-            "end_iter_EM": end_iter_EM,
-            "EM_converged": EM_converged,
-            # **{
-            #     k: [v] * N_on_off for k, v in params.items()
-            # },
         }
-    )
-    # if fitted_init_params:
-    #     # Save fitted params actually used to initialize HMMEM
-    #     on_off_df['init_mu_fitted'] = init_mu
-    #     on_off_df['init_alphaa_fitted'] = init_alphaa
-    #     on_off_df['init_betaa_fitted'] = init_betaa
-    # else:
-    #     on_off_df['init_mu_fitted'] = None
-    #     on_off_df['init_alphaa_fitted'] = None
-    #     on_off_df['init_betaa_fitted'] = None
+    ).sort_values(by="start_time").reset_index(drop=True)
 
-    return on_off_df.sort_values(by="start_time").reset_index(drop=True)
+    output_info = {
+        "cumFR": len(train) / Tmax,
+        "alphaa": alphaa,
+        "betaa": betaa,
+        "mu": mu,
+        "init_alphaa": init_alphaa,
+        "init_betaa": init_betaa,
+        "init_mu": init_mu,
+        "A": A,
+        "log_L": log_L,
+        "end_iter_EM": end_iter_EM,
+        "EM_converged": EM_converged,
+        "params": params,
+    }
+
+    return on_off_df, output_info
 
 
 # TODO: Nx1-array for betaa (one value per "history window")

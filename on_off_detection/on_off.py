@@ -47,7 +47,7 @@ def _run_detection(
             "Attempting to perform on/off detection on an empty spike train"
         )
 
-    on_off_df = detection_func(
+    on_off_df, output_info = detection_func(
         sliced_concat_train,
         Tmax,
         params,
@@ -112,7 +112,7 @@ def _run_detection(
     if verbose:
         print(f"Found N={len(on_off_df)} on/off periods.")
 
-    return on_off_df
+    return on_off_df, output_info
 
 
 class OnOffModel(object):
@@ -188,11 +188,12 @@ class OnOffModel(object):
         # Output stuff
         self.verbose = verbose
         self.on_off_df = None
+        self.output_info = None
 
     def run(self):
         if self.verbose:
             print("Run on-off detection on pooled data")
-        self.on_off_df = _run_detection(
+        self.on_off_df, self.output_info = _run_detection(
             self.cluster_ids,
             self.detection_func,
             self.trains_list,
@@ -201,7 +202,7 @@ class OnOffModel(object):
             self.verbose,
             i=None,
         )
-        return self.on_off_df
+        return self.on_off_df, self.output_info
 
     # def save():
     # 	if self.output_dir is None:

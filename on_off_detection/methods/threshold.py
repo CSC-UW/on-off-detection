@@ -228,15 +228,17 @@ def run_threshold(
                 "start_time": list(on_starts) + list(off_starts),
                 "end_time": list(on_ends) + list(off_ends),
                 "duration": list(on_durations) + list(off_durations),
-                "cumFR": len(train) / Tmax,
-                "count_threshold": count_threshold,
-                "gap_threshold": gap_threshold,
-                **params,
             }
         )
         .sort_values(by="start_time")
         .reset_index(drop=True)
     )
+    output_info = {
+        "cumFR": len(train) / Tmax,
+        "count_threshold": count_threshold,
+        "gap_threshold": gap_threshold,
+        "params": params,
+    }
     print("Done.")
 
-    return on_off_df
+    return on_off_df, output_info
