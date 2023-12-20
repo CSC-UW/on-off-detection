@@ -459,7 +459,7 @@ class SpatialOffModel():
         off_df["start_time_earliest"] = off_df["start_time"]
         off_df["end_time_latest"] = off_df["end_time"]
         off_df["duration_longest"] = off_df["duration"]
-        off_df["N_merged_window_offs"] = 1
+        off_df["N_merged"] = 1
         off_df["merged_window_offs_indices"] = [[idx] for idx in off_df.index]
         # Keep only meaningful columns
         off_df = off_df.loc[
@@ -468,7 +468,7 @@ class SpatialOffModel():
                 "state", "start_time_shared", "end_time_shared", "duration_shared",
                 "start_time_earliest", "end_time_latest", "duration_longest",
                 "lo", "hi", "span",
-                "N_merged_window_offs", "merged_window_offs_indices",
+                "N_merged", "merged_window_offs_indices",
             ]
         ]
 
@@ -577,7 +577,7 @@ def _merge_off_rows(base_off_row, selected_off_df):
     merged_off_row["hi"] = new_hi
     merged_off_row["span"] = new_hi - new_lo
     # Origins
-    merged_off_row["N_merged_window_offs"] += len(selected_off_df)
+    merged_off_row["N_merged"] += len(selected_off_df)
     merged_off_row["merged_window_offs_indices"] += list(selected_off_df.index)
 
     return merged_off_row
