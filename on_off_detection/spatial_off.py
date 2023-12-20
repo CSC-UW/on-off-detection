@@ -414,8 +414,10 @@ class SpatialOffModel(on_off.OnOffModel):
 
         # Iterate on rows that were never merged so far
         for i, off_row in tqdm(list(initial_off_df.iterrows())):
+
             if not keep.loc[i]:  # Don't modify row directly
                 continue
+            keep.loc[i] = False  # Don't merge row with itself
 
             # Subselect only nearby offs for speed
             nearby_off_max_time_diff = spatial_params[
