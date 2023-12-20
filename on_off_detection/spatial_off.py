@@ -4,9 +4,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from copy import deepcopy
 
 from . import on_off
 from .methods.exceptions import ALL_METHOD_EXCEPTIONS
+from .utils import subset_sorted_train, kway_mergesort, slice_and_concat_sorted_train
 
 SPATIAL_PARAMS = {
     # Windowing/pooling
@@ -68,7 +70,7 @@ def _run_detection(
     return window_on_off_df
 
 
-class SpatialOffModel(on_off.OnOffModel):
+class SpatialOffModel():
     """Run spatial OFF-state detection from MUA data.
 
     SpatialOffModel.run() runs on/off detection using OnOffModel at different
@@ -117,18 +119,35 @@ class SpatialOffModel(on_off.OnOffModel):
         n_jobs=1,
         verbose=True,
     ):
-        super().__init__(
-            trains_list,
-            bouts_df,
-            cluster_ids=cluster_ids,
-            method=on_off_method,
-            params=on_off_params,
-            verbose=verbose,
+        # Main. Full checks repeated when initializing/runing the OnOffModel objects per window.
+        # We don't simply inherit because the parameters/windows may be changed later on
+        # Could be refactored..
+        self.trains_list = [
+            subset_sorted_train(bouts_df, np.sort(train)) for train in trains_list
+        ]
+        if cluster_ids is not None:
+            assert len(cluster_ids) == len(trains_list)
+            self.cluster_ids = np.array(cluster_ids)
+        else:
+            self.cluster_ids = np.array(["" for i in range(len(trains_list))])
+        assert all(
+            [
+                c in bouts_df.columns
+                for c in ["start_time", "end_time", "duration", "state"]
+            ]
         )
+        assert bouts_df.duration.sum(), f"Empty bouts"
+        self.bouts_df = bouts_df
+        self.method = on_off_method
+        # Params
+        self._per_window_on_off_params = None
+        self.shared_on_off_params = on_off_params
+        #
+        self.verbose=verbose
+        self.n_jobs=n_jobs
         #
         self._spatial_params = None
         self.spatial_params = spatial_params
-        self.n_jobs=n_jobs
         # Depths
         assert len(cluster_depths) == len(self.cluster_ids)
         self.cluster_depths = np.array(cluster_depths)
@@ -174,7 +193,29 @@ class SpatialOffModel(on_off.OnOffModel):
         self._spatial_params = {k: v for k, v in SPATIAL_PARAMS.items()}
         self._spatial_params.update(params)
         print(f"Spatial params: {self._spatial_params}")
-    
+
+    @property
+    def per_window_on_off_params(self):
+        if self._per_window_on_off_params is None:
+            return [
+                deepcopy(self.shared_on_off_params)
+                for _ in self.windows_df.itertuples()
+            ]
+        if not len(self._per_window_on_off_params) == len(self.windows_df):
+            raise ValueError(
+                """Number of parameter dictionaries doesn't match number of windows."""
+            )
+        return self._per_window_on_off_params
+
+    @per_window_on_off_params.setter
+    def per_window_on_off_params(self, per_window_on_off_params):
+        if not len(per_window_on_off_params) == len(self.windows_df):
+            raise ValueError(
+                """Number of parameter dictionaries doesn't match number of windows."""
+            )
+        print(f"Setting custom per-window parameters for N={len(per_window_on_off_params)} windows")
+        self._per_window_on_off_params = per_window_on_off_params
+
     @property
     def windows_df(self):
         return self._windows_df
@@ -297,16 +338,18 @@ class SpatialOffModel(on_off.OnOffModel):
             f"Run on-off detection for each spatial window (N={len(self.windows_df)})"
         )
 
+        per_window_on_off_params = self.per_window_on_off_params
+
         if self.n_jobs == 1:
             on_off_dfs = []
-            for _, window_row in tqdm(self.windows_df.iterrows()):
+            for i, (_, window_row) in tqdm(enumerate(self.windows_df.iterrows())):
                 window_on_off_df = _run_detection(
                     window_row,
                     self.get_window_trains(window_row),
                     self.get_window_cluster_ids(window_row),
                     self.bouts_df,
                     self.method,
-                    self.params,
+                    per_window_on_off_params[i],
                     self.verbose,
                 )
                 on_off_dfs.append(window_on_off_df)
@@ -320,10 +363,10 @@ class SpatialOffModel(on_off.OnOffModel):
                     self.get_window_cluster_ids(window_row),
                     self.bouts_df,
                     self.method,
-                    self.params,
+                    per_window_on_off_params[i],
                     self.verbose,
                 )
-                for _, window_row in self.windows_df.iterrows()
+                for i, (_, window_row) in enumerate(self.windows_df.iterrows())
             )
 
         dfs_to_concat = [df for df in on_off_dfs if df is not None]
